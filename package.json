@@ -1,0 +1,9 @@
+{
+  "name": "sapp-claude-plugins",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"plugins/sapp-brand/test/*.test.js\"",
+    "preview": "node plugins/sapp-brand/scripts/render-preview.mjs"
+  }
+}

@@ -1,0 +1,4 @@
+.claude/worktrees/
+node_modules/
+.claude-plugin/types/
+plugins/sapp-brand/.claude-plugin/types/
