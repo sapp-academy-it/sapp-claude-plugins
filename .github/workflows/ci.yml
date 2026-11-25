@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Unit tests (node --test, no network)
+        run: npm test
+      - name: Install Claude Code (pinned)
+        run: npm install -g @anthropic-ai/claude-code@2.1.332
+      - name: Validate the marketplace
+        run: claude plugin validate .
+      - name: Validate the sapp-brand plugin and pin what it hooks and calls
+        run: |
+          claude plugin validate plugins/sapp-brand | tee validate.txt
+          calls=$(grep -F "./register.js calls:" validate.txt | sed 's/.*calls: //')
+          hooks=$(grep -F "./register.js hooks:" validate.txt | sed 's/.*hooks: //')
+          test "$(grep -cF "./register.js calls:" validate.txt)" = 1
+          test "$(grep -cF "./register.js hooks:" validate.txt)" = 1
+          test "$calls" = '$.theme.set, $.ui.resolve, $.ui.status'
+          test "$hooks" = 'session.start, ui.render{component=Backdrop}, ui.render{component=Spinner}'
