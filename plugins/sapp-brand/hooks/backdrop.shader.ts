@@ -4,7 +4,7 @@
 // 1. Lamp glow: the three lamp bulbs are the only cells of the scene painted a
 //    pure lemon yellow, so a quarter-resolution buffer finds them in the Svg
 //    picture itself and the glow follows them at any crop of the window.
-// 2. Chalk dust: 16 specks drifting slowly and fading in and out over several
+// 2. Chalk dust: 6 specks drifting slowly and fading in and out over several
 //    seconds each (well under three changes a second, so nothing flashes).
 // 3. A soft highlight that follows the pointer.
 //
@@ -47,7 +47,7 @@ const view = picture(p => {
 
   // Chalk dust.
   let dust = 0
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 6; i++) {
     const a = fract(sin(i * 12.9898) * 43758.5453)
     const b = fract(sin(i * 78.233 + 1.7) * 24634.6345)
     const c = fract(sin(i * 39.346 + 4.1) * 51372.3217)

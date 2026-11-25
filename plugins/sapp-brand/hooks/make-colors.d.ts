@@ -1,3 +1,5 @@
+// Provenance: copied unchanged from Anthropic's Claude Code plugin-authoring skill
+// (this header is the only addition). Do not edit.
 import type { ThemeColors } from 'claude-code'
 
 type Hex = string

@@ -1,3 +1,5 @@
+// Provenance: copied unchanged from Anthropic's Claude Code plugin-authoring skill
+// (this header is the only addition). Do not edit.
 // make-colors.js: copy this file into your mod's hooks folder, and leave it as it is.
 // Generated from the design system's theme code. Don't edit it.
 // sources-sha256: 60b9bbac46ce87b22085f1e0eda3cda8f295065f5d3a43cbc70491276fba6328

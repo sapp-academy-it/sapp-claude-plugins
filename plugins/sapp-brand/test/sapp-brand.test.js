@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { CREDIT, SPINNER_TEXT, register } from '../hooks/register.js'
+import { CREDIT, SPINNER_TEXT, register, themeProblems } from '../hooks/register.js'
 import { SCENE_SVG } from '../hooks/scene.js'
 import { tokens } from '../hooks/tokens.js'
 import { registered, render, startSession } from './harness.js'
@@ -85,7 +85,7 @@ test('the credit line is exact and is pinned as the status line', async () => {
   assert.deepEqual(status.args, ['Tạo bởi SAPP IT Department, © 2026'])
 })
 
-test('the spinner says "SAPP đang xử lý…" in place of the word, whatever the turn does', async () => {
+test('the spinner says "SAPP đang xử lý…" in place of the word and leaves messages alone', async () => {
   const engine = registered()
   const props = { word: 'Sauteing', message: null, suffix: '…', mode: 'thinking' }
   const out = await render(engine, 'Spinner', { surface: 'terminal', props })
@@ -98,12 +98,12 @@ test('the spinner says "SAPP đang xử lý…" in place of the word, whatever t
     mode: 'thinking',
   })
 
-  // While a state overrides the word with a message, the message is ours too.
+  // While a state overrides the word with a message (Compacting), it still shows.
   const overridden = await render(engine, 'Spinner', {
     surface: 'desktop',
     props: { ...props, message: 'Compacting' },
   })
-  assert.equal(overridden.passed.props.message, 'SAPP đang xử lý')
+  assert.equal(overridden.passed.props.message, 'Compacting')
 })
 
 test('the backdrop Svg stays under the 131072-character limit, with room to spare', () => {
@@ -139,19 +139,88 @@ test('the Backdrop hook leaves the terminal, and another mod\'s scene, alone', a
     surface: 'terminal',
     props: { scene: 'sapp-acca-classroom' },
   })
-  const other = await render(engine, 'Backdrop', {
+  const otherScene = await render(engine, 'Backdrop', {
     surface: 'desktop',
-    props: { scene: 'someone-elses-scene' },
+    props: { scene: 'someone-elses-scene', plugin: 'sapp-brand' },
+  })
+  // Another mod that happens to name the same scene is not ours to draw.
+  const otherPlugin = await render(engine, 'Backdrop', {
+    surface: 'desktop',
+    props: { scene: 'sapp-acca-classroom', plugin: 'another-mod' },
   })
 
   assert.ok(terminal.passed)
-  assert.ok(other.passed)
+  assert.ok(otherScene.passed)
+  assert.ok(otherPlugin.passed)
 })
 
 test('register() hooks only session.start and ui.render', () => {
   const events = registered().hooks.map(h => h.event).sort()
 
   assert.deepEqual(events, ['session.start', 'ui.render', 'ui.render'])
+})
+
+test('the ui.render hooks are exactly Backdrop and Spinner', () => {
+  const matchers = registered()
+    .hooks.filter(h => h.event === 'ui.render')
+    .map(h => h.matcher.component)
+    .sort()
+
+  assert.deepEqual(matchers, ['Backdrop', 'Spinner'])
+})
+
+test('the credit line survives a build where $.theme.set throws, and it is set first', async () => {
+  const engine = registered(register, { throwOn: 'theme.set' })
+  const result = await startSession(engine)
+
+  assert.ok(result.passed)
+  assert.deepEqual(
+    engine.calls.map(c => c.path),
+    ['ui.status', 'theme.set'],
+  )
+  assert.deepEqual(engine.calls[0].args, ['Tạo bởi SAPP IT Department, © 2026'])
+})
+
+test('the theme is one Desktop will paint: no problem line starts "Desktop won\'t paint"', () => {
+  const blocking = themeProblems.filter(line => line.startsWith("Desktop won't paint"))
+
+  assert.deepEqual(blocking, [])
+  // Control: makeColors does report problem lines for this theme, so the list is live.
+  assert.ok(themeProblems.length > 0)
+})
+
+// The shader finds lamp bulbs by green minus blue. Colours as drawn: each fill
+// seen through the veil. Only the bulb may reach the metric's range.
+const hexToRgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
+const over = (top, bottom, alpha) => hexToRgb(top).map((v, i) => v * alpha + hexToRgb(bottom)[i] * (1 - alpha))
+const metric = ([, g, b]) => (g - b) / 255
+
+test('only the lamp bulb scores above 0.6 on the shader\'s lamp metric, in light and dark', () => {
+  const [styleText] = SCENE_SVG.match(/<style>(.*)<\/style>/s).slice(1)
+  const [lightCss, darkCss] = styleText.split('@media (prefers-color-scheme: dark){')
+  const fills = css => [...css.matchAll(/\.c\d+\{fill:(#[0-9A-Fa-f]{6})\}/g)].map(m => m[1])
+  const veil = css => css.match(/\.veil\{fill:(#[0-9A-Fa-f]{6});opacity:([.\d]+)\}/).slice(1)
+  const bulb = SCENE_SVG.match(/<g fill="(#[0-9A-Fa-f]{6})">(?:<rect [^>]*\/>)+<\/g><\/svg>/)[1]
+
+  assert.equal(bulb, '#FFEE22')
+  // The bulb is drawn after the veil: its own fill is what the shader sees.
+  assert.ok(metric(hexToRgb(bulb)) > 0.76)
+
+  for (const css of [lightCss, darkCss]) {
+    const [veilFill, veilAlpha] = veil(css)
+    const seen = fills(css)
+    assert.ok(seen.length > 20)
+    for (const fill of seen) {
+      const scored = metric(over(veilFill, fill, Number(veilAlpha)))
+      assert.ok(scored < 0.6, `${fill} scores ${scored}`)
+    }
+    // Halos use the bulb colour at 12 percent over the veiled scene.
+    for (const fill of seen) {
+      const veiled = over(veilFill, fill, Number(veilAlpha))
+      const haloed = veiled.map((v, i) => hexToRgb(bulb)[i] * 0.12 + v * 0.88)
+      assert.ok(metric(haloed) < 0.6, `${fill} under a halo scores ${metric(haloed)}`)
+    }
+  }
 })
 
 test('register() registers no event that reads or changes Claude\'s actions', () => {
@@ -173,7 +242,7 @@ test('running the hooks makes no call on $ beyond theme.set, ui.status and ui.re
   await startSession(engine)
   await render(engine, 'Backdrop', {
     surface: 'desktop',
-    props: { scene: 'sapp-acca-classroom' },
+    props: { scene: 'sapp-acca-classroom', plugin: 'sapp-brand' },
   })
   await render(engine, 'Spinner', {
     surface: 'desktop',

@@ -1,7 +1,7 @@
 // A fake engine for the tests: `on` records each hook, `$` records each call.
 import { register } from '../hooks/register.js'
 
-export function makeEngine() {
+export function makeEngine({ throwOn } = {}) {
   const hooks = []
   const calls = []
 
@@ -12,6 +12,7 @@ export function makeEngine() {
   const record = path => {
     const target = (...args) => {
       calls.push({ path: path.join('.'), args })
+      if (path.join('.') === throwOn) throw new Error('not available on this build')
       return path.join('.') === 'theme.set' ? { isDrawn: true } : undefined
     }
     return new Proxy(target, { get: (_, key) => record([...path, String(key)]) })
@@ -48,8 +49,8 @@ export function makeEngine() {
   return { hooks, calls, on, $ }
 }
 
-export function registered(registerFn = register) {
-  const engine = makeEngine()
+export function registered(registerFn = register, options) {
+  const engine = makeEngine(options)
   registerFn(engine.on)
   return engine
 }

@@ -1,5 +1,5 @@
 // The loaded copy of ../tokens.json (a hooks module can import code files only).
-// test/tokens.test.js fails when the two differ.
+// a test in test/sapp-brand.test.js fails when the two differ.
 export const tokens = {
   roles: {
     accent: '#FFB700',

@@ -22,5 +22,12 @@ jobs:
         run: npm install -g @anthropic-ai/claude-code@2.1.332
       - name: Validate the marketplace
         run: claude plugin validate .
-      - name: Validate the sapp-brand plugin
-        run: claude plugin validate plugins/sapp-brand
+      - name: Validate the sapp-brand plugin and pin what it hooks and calls
+        run: |
+          claude plugin validate plugins/sapp-brand | tee validate.txt
+          calls=$(grep -F "./register.js calls:" validate.txt | sed 's/.*calls: //')
+          hooks=$(grep -F "./register.js hooks:" validate.txt | sed 's/.*hooks: //')
+          test "$(grep -cF "./register.js calls:" validate.txt)" = 1
+          test "$(grep -cF "./register.js hooks:" validate.txt)" = 1
+          test "$calls" = '$.theme.set, $.ui.resolve, $.ui.status'
+          test "$hooks" = 'session.start, ui.render{component=Backdrop}, ui.render{component=Spinner}'

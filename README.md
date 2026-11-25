@@ -39,25 +39,29 @@ Cần Claude Code có mod (từ 2.1.286); đã kiểm với 2.1.332.
 
 ## Triển khai cho cả tổ chức
 
-Quản trị viên dán đoạn sau vào managed settings (claude.ai admin console hoặc `managed-settings.json`). Cấu trúc theo [Manage mods for your organization](https://code.claude.com/docs/en/plugins/mods/admin):
+Quản trị viên dán đoạn sau vào managed settings (claude.ai admin console hoặc `managed-settings.json`):
 
 ```json
 {
   "extraKnownMarketplaces": {
     "sapp": {
-      "source": { "source": "github", "repo": "sapp-academy-it/sapp-claude-plugins" }
+      "source": {
+        "source": "github",
+        "repo": "sapp-academy-it/sapp-claude-plugins",
+        "ref": "<SHA 40 ký tự của commit đã duyệt trên main>"
+      }
     }
   },
   "enabledPlugins": { "sapp-brand@sapp": true },
-  "prependPlugins": ["sapp-brand@sapp", "sec-default@builtin"]
+  "appendPlugins": ["sapp-brand@sapp"]
 }
 ```
 
-- `extraKnownMarketplaces` khai báo marketplace `sapp` từ kho GitHub này.
+- `extraKnownMarketplaces` khai báo marketplace `sapp` từ kho GitHub này. `ref` ghim marketplace vào đúng một commit: thay `<SHA ...>` bằng SHA đầy đủ (40 ký tự thường) của commit đã duyệt. Mỗi bản phát hành mới đổi SHA này trong cài đặt quản trị; không đổi thì máy người dùng vẫn ở bản đã ghim. Ghim bằng SHA cần Claude Code 2.1.324 trở lên; bản cũ hơn không nạp được marketplace ghim kiểu này.
 - `enabledPlugins` bật `sapp-brand` cho mọi người nhận cài đặt.
-- `prependPlugins` chạy mod của tổ chức trước mod của người dùng. Khi đặt `prependPlugins`, giữ `sec-default@builtin` trong danh sách để không mất lớp bảo vệ có sẵn của Claude Code. Một mod từ marketplace GitHub chỉ tính là mod của tổ chức khi cả ba khóa đều có, trên Claude Code 2.1.324 trở lên.
+- `appendPlugins` làm mod chạy sau mod của người dùng. Theo tài liệu, khai báo ở `prependPlugins` hoặc `appendPlugins` đều đủ để một mod từ marketplace GitHub tính là mod của tổ chức (cùng với hai khóa trên, trên Claude Code 2.1.324 trở lên). `sapp-brand` chỉ vẽ giao diện nên không cần chạy trước mod khác; dùng `appendPlugins` cũng không buộc phải liệt kê `sec-default@builtin`.
 
-Để khóa phiên bản, ghim marketplace và mục plugin theo [marketplace reference](https://code.claude.com/docs/en/plugins/marketplace-reference).
+Cấu trúc theo [Manage mods for your organization](https://code.claude.com/docs/en/plugins/mods/admin) và [Marketplace reference](https://code.claude.com/docs/en/plugins/marketplace-reference).
 
 ## Phát triển
 
