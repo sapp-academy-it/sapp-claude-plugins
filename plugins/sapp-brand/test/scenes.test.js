@@ -7,7 +7,7 @@ import { IT_SVG } from '../hooks/scene-it.js'
 import { MARKETING_SVG } from '../hooks/scene-marketing.js'
 import { SCENE_SVG } from '../hooks/scene.js'
 import { THEMES, pickTheme } from '../hooks/themes.js'
-import { GRAPH_BG, MARKERS, SCENES, buildScene, buildSceneModule } from '../scripts/build-scene.mjs'
+import { GRAPH_BG, GRAPH_PANEL, MARKERS, SCENES, buildScene, buildSceneModule } from '../scripts/build-scene.mjs'
 import { registered, render, runCommand } from './harness.js'
 
 const hooks = new URL('../hooks/', import.meta.url)
@@ -248,33 +248,69 @@ function litCells(svg) {
   return cells
 }
 
-test('one scroll cycle of the monitoring graph paints only cells of its panel; without the mask it does not', () => {
-  const lit = litCells(IT_SVG)
-  const line = MARKERS.it.graph.toUpperCase()
-  const back = GRAPH_BG.toUpperCase()
-  const at = (x, y) => lit.get(`${x},${y}`)
-  const panel = new Set([...lit].filter(([, c]) => c === line || c === back).map(([k]) => k))
-  // What the shader does per cell and per scroll step: the line one step over, or one period over.
-  const painted = masked => {
-    const out = new Set()
+// The final picture of a scene as cells: the veiled class fills, then the lit layer over them.
+function pictureOf(svg) {
+  const [css] = svg.match(/<style>(.*?)<\/style>/s).slice(1)
+  const fills = new Map([...css.matchAll(/\.(c\d+)\{fill:(#[0-9A-Fa-f]{6})\}/g)].map(m => [m[1], m[2]]))
+  const [, veilFill, veilAlpha] = css.match(/\.veil\{fill:(#[0-9A-Fa-f]{6});opacity:([.\d]+)\}/)
+  const picture = new Map()
+  for (const [, cls, d] of svg.matchAll(/<path class="(c\d+)" d="([^"]*)"/g)) {
+    const seenColor = rgb(fills.get(cls)).map((v, i) => v * (1 - Number(veilAlpha)) + rgb(veilFill)[i] * Number(veilAlpha))
+    for (const [, x, y, w, h] of d.matchAll(/M(\d+) (\d+)h(\d+)v(\d+)h-\d+z/g)) {
+      for (let j = 0; j < h / 4; j++) for (let i = 0; i < w / 4; i++) picture.set(`${x / 4 + i},${y / 4 + j}`, seenColor)
+    }
+  }
+  for (const [k, c] of litCells(svg)) picture.set(k, rgb(c))
+  return picture
+}
+
+// The shader's own measure: 1 at the colour, 0 beyond 0.14 away, a smoothstep between.
+const smooth = (a, b, x) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)))
+  return t * t * (3 - 2 * t)
+}
+const match = (c, target) => 1 - smooth(0.05, 0.14, dist(c, rgb(target)))
+
+test('one scroll cycle of the monitoring graph, with the shader\'s own tolerances, paints only inside the panel', () => {
+  const source = readFileSync(new URL('it-room.shader.ts', hooks), 'utf8')
+  const edges = source.match(/smoothstep\((\d+), (\d+), sceneX\) \* \(1 - smoothstep\((\d+), (\d+), sceneX\)/)
+  const left = Number(edges[2])
+  const right = Number(edges[3])
+  const line = MARKERS.it.graph
+  const picture = pictureOf(IT_SVG)
+  // Panel edges in cells, from the build script's own constant (scene units are 4 a cell).
+  assert.equal(left, GRAPH_PANEL.x * 4)
+  assert.equal(right, (GRAPH_PANEL.x + GRAPH_PANEL.w) * 4)
+  const panel = (x, y) => x >= GRAPH_PANEL.x && x < GRAPH_PANEL.x + GRAPH_PANEL.w && y >= GRAPH_PANEL.y && y < GRAPH_PANEL.y + GRAPH_PANEL.h
+
+  // The shader per cell: the line one step over or one period over, kept where the pixel is
+  // the panel's back colour or the line, and between the panel's edges.
+  const painted = (pic, { byPosition }) => {
+    const out = []
     for (let shift = 0; shift < 16; shift++) {
       for (let y = 0; y < 136; y++) {
         for (let x = 0; x < 192; x++) {
-          const live = at(x + shift, y) === line || at(x + shift - 16, y) === line
-          const inside = at(x, y) === line || at(x, y) === back
-          if (live && (!masked || inside)) out.add(`${x},${y}`)
+          const at = (xx, yy) => pic.get(`${xx},${yy}`) ?? [0, 0, 0]
+          const live = Math.max(match(at(x + shift, y), line), match(at(x + shift - 16, y), line))
+          const inside = Math.max(match(at(x, y), line), match(at(x, y), GRAPH_BG))
+          // The shader reads the cell's centre: x 4 + 2 scene units.
+          const across = smooth(39, 40, x * 4 + 2) * (1 - smooth(248, 249, x * 4 + 2))
+          if (live * inside * (byPosition ? across : 1) > 0.01 && !panel(x, y)) out.push(`${x},${y}`)
         }
       }
     }
     return out
   }
 
-  assert.ok(panel.size > 1000)
-  const withMask = painted(true)
-  assert.ok(withMask.size > 100)
-  assert.deepEqual([...withMask].filter(k => !panel.has(k)), [])
-  // Control: without the mask the same simulation leaks outside the panel.
-  assert.ok([...painted(false)].filter(k => !panel.has(k)).length > 100)
+  assert.deepEqual(painted(picture, { byPosition: true }), [])
+  // Near-colour control: a cell 0.04 from the back colour, outside the panel on a row the line visits,
+  // must stay unpainted by position, and is painted when only colour decides.
+  const near = [...rgb(GRAPH_BG)].map((v, i) => v + [7, 5, 6][i])
+  assert.ok(dist(near, rgb(GRAPH_BG)) > 0.03 && dist(near, rgb(GRAPH_BG)) < 0.05)
+  const withNear = new Map(picture)
+  withNear.set('66,16', near)
+  assert.deepEqual(painted(withNear, { byPosition: true }), [])
+  assert.ok(painted(withNear, { byPosition: false }).includes('66,16'))
 })
 
 // ---- the board reads in every theme -----------------------------------------------------------------

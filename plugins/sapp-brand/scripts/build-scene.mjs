@@ -98,6 +98,8 @@ export const MARKERS = {
 // The graph panel's own background: the it-room shader paints this over the resting line.
 // The classroom board face is painted above the veils, like its ink, so the ink always has the same contrast on it.
 export const BOARD_FACE = '#E6E2DE'
+// The graph panel in cells: the it-room shader bounds the moving line by its left and right edges (x 4 times these).
+export const GRAPH_PANEL = { x: 10, y: 8, w: 52, h: 24 }
 export const GRAPH_BG = '#0A1F3A'
 
 // Palette shared with the sprites (the whiteboard, the desk, the clock).
@@ -691,7 +693,7 @@ function itRoom() {
   cv.box(7, 4, 92, 1, '#4A5585')
   // Panel 1: a line chart (the marker line on its own background), a wave that
   // repeats every 16 cells so the shader can scroll it.
-  cv.litBox(10, 8, 52, 24, GRAPH_BG)
+  cv.litBox(GRAPH_PANEL.x, GRAPH_PANEL.y, GRAPH_PANEL.w, GRAPH_PANEL.h, GRAPH_BG)
   const wave = [14, 13, 11, 8, 6, 5, 6, 9, 11, 12, 10, 7, 5, 4, 7, 11]
   for (let i = 0; i < 52; i++) {
     const y = 8 + wave[i % 16] + 4

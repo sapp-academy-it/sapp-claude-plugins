@@ -4,7 +4,7 @@
 // 1. Rack LEDs (#3DFF7A) dim and brighten, about one slow cycle every 5 seconds, each
 //    row of the racks a little out of step with the next (far below 3 changes a second).
 // 2. One status light (#B4FF3D) turns amber, holds, and fades back to green: 18 s a round.
-// 3. The monitoring graph (#4FD1FF on #0A1F3A) scrolls left. Its wave repeats every 16
+// 3. The monitoring graph (#4FD1FF on #0A1F3A) scrolls left, inside the panel only (by position and colour). Its wave repeats every 16
 //    cells, so the still frame and the moving frame are the same picture.
 //
 // Under Reduce Motion the engine shows the plain Svg.
@@ -52,7 +52,12 @@ const view = picture(p => {
   // Only inside the panel: a pixel that is the panel's own back colour or the resting line.
   const resting = 1 - smoothstep(0.05, 0.14, length(c.rgb - line))
   const inside = max(resting, 1 - smoothstep(0.05, 0.14, length(c.rgb - back)))
-  const live = max(a, b) * inside
+  // ...and only between the panel's left and right edges, by position: the panel spans x 40 to
+  // 248 of the 768-unit scene, which the Svg fits to the window with `slice` (the larger of the two
+  // scales, centred). Colour alone cannot say "inside": any colour near the panel's own would pass.
+  const sceneX = (p.uv.x * size.x - size.x / 2) / max(size.x / 768, size.y / 544) + 384
+  const across = smoothstep(39, 40, sceneX) * (1 - smoothstep(248, 249, sceneX))
+  const live = max(a, b) * inside * across
   const graph = max(live, resting)
 
   const dimColor = vec3(0.106, 0.125, 0.22)
