@@ -118,3 +118,12 @@ test('an unknown argument still lists the themes, changes nothing, and says when
   assert.equal(calls(off, 'theme.set').length + calls(off, 'theme.clear').length, 0)
   assert.equal(store.get(OFF_KEY), true)
 })
+
+test('the /sapp-theme registration offers off and on in its argument hint and description (autocomplete)', async () => {
+  const engine = registered()
+  await startSession(engine)
+  const spec = calls(engine, 'command.register').map(c => c.args[0]).find(c => c.name === 'sapp-theme')
+
+  assert.equal(spec.argumentHint, '[số | mã | tên | off | on]')
+  assert.ok(spec.description.includes('off') && spec.description.includes('on'))
+})

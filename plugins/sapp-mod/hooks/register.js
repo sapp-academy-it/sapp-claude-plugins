@@ -72,7 +72,6 @@ const switchTo = async ($, theme, state) => {
   return `Đã đổi sang "${theme.title}" và lưu lại cho các phiên sau.`
 }
 
-// The theme this session applied lives in `state`; before any, the stored one stands.
 // Turns the theme off: the engine's own look comes back. The credit line and the spinner word are not
 // part of the theme, so they stay. The choice is stored, so a later session does not apply a theme.
 const turnOff = async ($, state) => {
@@ -92,6 +91,7 @@ const turnOff = async ($, state) => {
   return `Đã tắt giao diện SAPP: Claude Code về giao diện mặc định, và giữ vậy ở các phiên sau. ${kept}`
 }
 
+// The theme this session applied lives in `state`; before any, the stored one stands.
 const answer = async ($, e, state) => {
   const asked = (e.args ?? '').trim()
   const off = state.off ?? (await isOff($))
@@ -184,8 +184,8 @@ export const register = on => {
     try {
       await $.command.register({
         name: 'sapp-theme',
-        description: 'Đổi giao diện SAPP. Không có tham số thì liệt kê các giao diện.',
-        argumentHint: '[số | mã | tên]',
+        description: 'Đổi giao diện SAPP, hoặc tắt bằng off và bật lại bằng on. Không có tham số thì liệt kê các giao diện.',
+        argumentHint: '[số | mã | tên | off | on]',
       })
     } catch {
       // No command on this build.

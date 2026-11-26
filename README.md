@@ -31,7 +31,7 @@ Cần Claude Code từ **2.1.330** trở lên.
 ```text
 /sapp-theme                 # liệt kê các giao diện, đánh dấu cái đang dùng
 /sapp-theme it-room         # đổi theo mã, theo số trong danh sách hoặc theo tên
-/sapp-theme off              # tắt giao diện SAPP (giữ dòng credit và chữ "SAPP đang xử lý…"); bật lại bằng /sapp-theme on
+/sapp-theme off             # tắt giao diện SAPP (giữ dòng credit và chữ "SAPP đang xử lý…"); bật lại bằng /sapp-theme on
 /sapp-help                  # trang trợ giúp SAPP và hướng dẫn "Dùng Claude hiệu quả"
 ```
 
