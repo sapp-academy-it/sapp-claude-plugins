@@ -1,5 +1,5 @@
 // Builds hooks/guide.js, the text of the guide shown by /sapp-help, from the one
-// source of truth: skills/sapp-claude-guide/SKILL.md.
+// source of truth: skills/sapp-ai-guide/SKILL.md.
 //
 //   node plugins/sapp-mod/scripts/build-guide.mjs
 //
@@ -9,7 +9,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const here = new URL('../', import.meta.url)
-export const SKILL_PATH = 'skills/sapp-claude-guide/SKILL.md'
+export const SKILL_PATH = 'skills/sapp-ai-guide/SKILL.md'
 export const GUIDE_OUT = 'hooks/guide.js'
 
 // Splits a SKILL.md into its frontmatter fields (flat `key: value` lines) and its body.

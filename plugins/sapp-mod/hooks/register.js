@@ -75,7 +75,10 @@ const shown = text => (text.length > 64 ? `${text.slice(0, 64)}…` : text)
 
 // The pointer to /sapp-help shows once per install: the flag is stored before the toast,
 // so a store that cannot write (or read) never makes the toast come back.
-const pointToHelp = async $ => {
+// A run with no one to see it (`claude -p`, the SDK: not interactive, or no surface drawing yet)
+// leaves the flag alone, so the toast is not spent unseen.
+const pointToHelp = async ($, e) => {
+  if (!e.isInteractive || e.surface == null) return
   try {
     if (await $.store.get(TOAST_KEY)) return
     await $.store.set(TOAST_KEY, true)
@@ -135,7 +138,7 @@ export const register = on => {
     } catch {
       // No command on this build.
     }
-    await pointToHelp($)
+    await pointToHelp($, e)
 
     return next(e)
   })
@@ -160,10 +163,13 @@ export const register = on => {
     })
   })
 
-  // One tip in TIP_EVERY is ours; the rest are the engine's own choice, untouched.
-  on('ui.tip', ($, e, next) => {
+  // One tip in TIP_EVERY is ours; the rest are the engine's own choice, untouched. The chain
+  // below us always runs first (next(e)), so other mods' tip hooks get their turn on every ask;
+  // on our turn we then replace its answer with ours.
+  on('ui.tip', async ($, e, next) => {
     state.tips += 1
-    if (state.tips % TIP_EVERY !== 0) return next(e)
+    const chosen = await next(e)
+    if (state.tips % TIP_EVERY !== 0) return chosen
     return { id: HELP_TIP_ID, text: HELP_TIP, label: 'SAPP' }
   })
 

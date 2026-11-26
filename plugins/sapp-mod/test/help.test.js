@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { GUIDE_MARKDOWN } from '../hooks/guide.js'
@@ -8,9 +10,12 @@ import { register } from '../hooks/register.js'
 import { buildGuideModule, parseSkill } from '../scripts/build-guide.mjs'
 import { find, registered, render, runCommand, startSession, tip } from './harness.js'
 
-const SKILL = readFileSync(new URL('../skills/sapp-claude-guide/SKILL.md', import.meta.url), 'utf8')
+const SKILL = readFileSync(new URL('../skills/sapp-ai-guide/SKILL.md', import.meta.url), 'utf8')
 // The body of the SKILL.md, found here without the build script: what follows the closing --- line.
 const skillBody = text => text.split('\n---\n').slice(1).join('\n---\n').trim()
+
+// The Agent Skills field rule for `name`; checked here because claude.ai refuses the upload otherwise.
+const hasReservedWord = name => ['anthropic', 'claude'].some(word => name.includes(word))
 
 const toasts = engine => engine.calls.filter(c => c.path === 'ui.toast')
 
@@ -133,6 +138,8 @@ test('the pointer toast shows once, the flag is stored, and later sessions stay 
   await startSession(later)
   assert.equal(toasts(first).length, 1)
   assert.equal(toasts(later).length, 0)
+  // Pinned on purpose: the key names what is already stored on installs (renaming it would show the
+  // toast a second time), and the toast line is user-facing text the owner asked for word for word.
   assert.equal(TOAST_KEY, 'help-toast-shown')
   assert.equal(HELP_TOAST, 'Gõ /sapp-help để xem hướng dẫn dùng Claude tại SAPP')
 })
@@ -145,12 +152,47 @@ test('a store that cannot be written makes no toast at all, so it can never come
   assert.equal(toasts(engine).length, 0)
 })
 
+test('a run nobody sees (not interactive, or no surface) does not spend the toast; the next interactive one shows it', async () => {
+  const store = new Map()
+  for (const event of [
+    { cwd: '/', surface: 'terminal', isInteractive: false },
+    { cwd: '/', surface: null, isInteractive: true },
+    { cwd: '/', isInteractive: true },
+  ]) {
+    const engine = registered(register, { store })
+    const out = await startSession(engine, event)
+    assert.ok(out.passed)
+    assert.equal(toasts(engine).length, 0, JSON.stringify(event))
+    assert.equal(store.has('help-toast-shown'), false, JSON.stringify(event))
+  }
+  // Control: the same store, an interactive session with a surface, shows it and stores the flag.
+  const seen = registered(register, { store })
+  await startSession(seen, { cwd: '/', surface: 'terminal', isInteractive: true })
+  assert.equal(toasts(seen).length, 1)
+  assert.equal(store.get('help-toast-shown'), true)
+})
+
 test('a toast that throws does not stop the session start', async () => {
   const engine = registered(register, { throwOn: 'ui.toast' })
   const out = await startSession(engine)
 
   assert.ok(out.passed)
   assert.equal(engine.calls.some(c => c.path === 'command.register'), true)
+})
+
+test('the tip hook always lets the hooks below it run, on our turn too (other mods get their turn)', async () => {
+  const engine = registered()
+  const hook = find(engine, 'ui.tip')
+  let asked = 0
+  const next = async e => {
+    asked += 1
+    return { id: 'engine-tip' }
+  }
+  const answers = []
+  for (let i = 0; i < 4; i += 1) answers.push(await hook.fn(engine.$, { candidates: [] }, next))
+
+  assert.equal(asked, 4)
+  assert.deepEqual(answers.map(a => a.id), ['engine-tip', 'engine-tip', 'engine-tip', 'sapp-help'])
 })
 
 test('the spinner tip is ours on every 4th ask and the engine\'s own choice on the others', async () => {
@@ -168,6 +210,7 @@ test('the spinner tip is ours on every 4th ask and the engine\'s own choice on t
   })
   // The others pass the engine's candidates on untouched.
   assert.deepEqual(answers[0].passed.candidates, candidates)
+  // HELP_TIP is user-facing text; its length is checked against the engine's limits, not pinned.
   // The limits of an own tip: id of letters, digits and . _ -, up to 64; text up to 500; label up to 40.
   assert.match(answers[3].id, /^[A-Za-z0-9._-]{1,64}$/)
   assert.ok(HELP_TIP.length <= 500 && answers[3].label.length <= 40)
@@ -184,11 +227,20 @@ test('the card carries the SKILL.md body word for word, and hooks/guide.js is bu
   assert.equal(buildGuideModule(), readFileSync(new URL('../hooks/guide.js', import.meta.url), 'utf8'))
 })
 
-test('the drift check is live: a SKILL.md edited without a rebuild no longer matches the committed guide', () => {
-  const edited = SKILL.replace('Hỏi như đang nhắn tin cho một đồng nghiệp', 'Hỏi như đang nhắn tin cho một người lạ')
+test('the drift check is live: a SKILL.md body edited in a temp copy no longer matches the committed guide', () => {
+  const committed = readFileSync(new URL('../hooks/guide.js', import.meta.url), 'utf8')
+  const dir = mkdtempSync(join(tmpdir(), 'sapp-skill-'))
+  const copy = join(dir, 'SKILL.md')
+  const drifts = text => buildGuideModule(text) !== committed
 
-  assert.notEqual(edited, SKILL)
-  assert.notEqual(buildGuideModule(edited), readFileSync(new URL('../hooks/guide.js', import.meta.url), 'utf8'))
+  // Control: an untouched copy does not drift.
+  writeFileSync(copy, SKILL)
+  assert.equal(drifts(readFileSync(copy, 'utf8')), false)
+  // The body gains a line; the frontmatter is as it was.
+  writeFileSync(copy, `${SKILL.trimEnd()}\n\n- Một dòng thêm vào thân skill\n`)
+  const edited = readFileSync(copy, 'utf8')
+  assert.equal(edited.startsWith(SKILL.split('\n---\n')[0]), true)
+  assert.equal(drifts(edited), true)
   assert.notEqual(GUIDE_MARKDOWN, skillBody(edited))
 })
 
@@ -209,8 +261,10 @@ test('the SKILL.md frontmatter is valid for Claude Code and for an upload to cla
   const { fields } = parseSkill(SKILL)
 
   assert.deepEqual(Object.keys(fields), ['name', 'description'])
-  assert.equal(fields.name, 'sapp-claude-guide')
+  assert.equal(fields.name, 'sapp-ai-guide')
   assert.match(fields.name, /^[a-z0-9-]{1,64}$/)
+  // Agent Skills rule: the name "cannot contain reserved words: anthropic, claude".
+  assert.equal(hasReservedWord(fields.name), false)
   assert.ok(fields.description.length > 100 && fields.description.length <= 1024)
   // The description is what makes Claude load it: how to use Claude well, and SAPP's rules for it.
   assert.ok(fields.description.includes('dùng Claude'))
@@ -218,8 +272,15 @@ test('the SKILL.md frontmatter is valid for Claude Code and for an upload to cla
   assert.ok(fields.description.includes('SAPP'))
   // Stands alone: no plugin-only path or variable.
   assert.equal(/CLAUDE_PLUGIN_ROOT|\.\.\//.test(SKILL), false)
-  // The folder is named as the skill, which a claude.ai zip needs.
-  assert.equal(readFileSync(new URL('../skills/sapp-claude-guide/SKILL.md', import.meta.url), 'utf8'), SKILL)
+  // The folder is named as the skill, which a claude.ai zip needs, and it is the only skill.
+  assert.deepEqual(readdirSync(new URL('../skills/', import.meta.url)), [fields.name])
+})
+
+test('the reserved-word check rejects claude and anthropic anywhere in a name, and passes a clean one (control)', () => {
+  assert.equal(hasReservedWord('sapp-claude-guide'), true)
+  assert.equal(hasReservedWord('anthropic-helper'), true)
+  assert.equal(hasReservedWord('my-anthropic'), true)
+  assert.equal(hasReservedWord('sapp-ai-guide'), false)
 })
 
 test('a SKILL.md with no frontmatter is refused by the build (negative case)', () => {

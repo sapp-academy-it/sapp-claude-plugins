@@ -70,9 +70,9 @@ export const find = (engine, event, matcher) =>
 
 const next = async e => ({ passed: e })
 
-export async function startSession(engine) {
+export async function startSession(engine, event = { cwd: '/', surface: 'desktop', isInteractive: true }) {
   const hook = find(engine, 'session.start')
-  return hook.fn(engine.$, { cwd: '/', surface: 'desktop' }, next)
+  return hook.fn(engine.$, event, next)
 }
 
 export async function render(engine, component, e) {

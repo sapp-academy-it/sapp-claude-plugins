@@ -1,5 +1,5 @@
 ---
-name: sapp-claude-guide
+name: sapp-ai-guide
 description: Hướng dẫn dùng Claude hiệu quả tại SAPP bằng 5 quy tắc ASK - CONTEXT - VERIFY - OUTPUT - TEST. Dùng khi người dùng hỏi cách dùng Claude cho tốt, cách viết yêu cầu (prompt) cho Claude, cách kiểm tra kết quả của Claude, hoặc hỏi quy tắc, hướng dẫn, nề nếp dùng Claude của SAPP. Use when someone asks how to use Claude well, how to write a good prompt, how to check Claude's answers, or what SAPP's rules for using Claude are.
 ---
 
