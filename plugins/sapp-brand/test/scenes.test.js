@@ -7,7 +7,7 @@ import { IT_SVG } from '../hooks/scene-it.js'
 import { MARKETING_SVG } from '../hooks/scene-marketing.js'
 import { SCENE_SVG } from '../hooks/scene.js'
 import { THEMES, pickTheme } from '../hooks/themes.js'
-import { GRAPH_BG, GRAPH_PANEL, MARKERS, SCENES, buildScene, buildSceneModule } from '../scripts/build-scene.mjs'
+import { GRAPH_BG, GRAPH_PANEL, IT_PEOPLE, MARKERS, RIM, SCENES, buildItWithoutPeople, buildItWithoutRim, buildScene, buildSceneModule, personCells } from '../scripts/build-scene.mjs'
 import { registered, render, runCommand } from './harness.js'
 
 const hooks = new URL('../hooks/', import.meta.url)
@@ -43,7 +43,7 @@ test('a scene name that does not exist is refused, not built empty', () => {
 
 // ---- sizes and shape of every new Svg ------------------------------------------------
 
-const NEW = ['acca-classroom', 'acca-night', 'marketing-room', 'marketing-board', 'it-room', 'it-blueprint']
+const NEW = ['acca-classroom', 'marketing-room', 'marketing-board', 'it-room', 'it-blueprint']
 
 test('every scene Svg: under 131072 characters, crispEdges, a viewBox, no width or height, no id that is not hyphenated', () => {
   for (const id of NEW) {
@@ -132,7 +132,6 @@ test('the Backdrop hook plays the shader of each theme over its own Svg, and non
   const draw = scene => render(engine, 'Backdrop', { surface: 'desktop', props: { scene, plugin: 'sapp-brand' } })
   const want = {
     'sapp-acca-classroom': './backdrop.shader.ts',
-    'sapp-acca-night': './backdrop.shader.ts',
     'sapp-marketing-room': './marketing.shader.ts',
     'sapp-marketing-board': './marketing-board.shader.ts',
     'sapp-it-room': './it-room.shader.ts',
@@ -190,10 +189,10 @@ test('the new titles match in any case, with and without accents, and by number 
     ['Bản vẽ mạng', 'it-blueprint'],
     ['ban ve mang', 'it-blueprint'],
     ['BẢN VẼ MẠNG', 'it-blueprint'],
-    ['3', 'marketing-room'],
-    ['4', 'marketing-board'],
-    ['5', 'it-room'],
-    ['6', 'it-blueprint'],
+    ['2', 'marketing-room'],
+    ['3', 'marketing-board'],
+    ['4', 'it-room'],
+    ['5', 'it-blueprint'],
     ['it-room', 'it-room'],
     ['  phong it ', 'it-room'],
   ]
@@ -205,7 +204,7 @@ test('the new titles match in any case, with and without accents, and by number 
 })
 
 test('/sapp-theme switches to each new theme, sets its scene and stores its id', async () => {
-  for (const id of NEW.slice(2)) {
+  for (const id of NEW.slice(1)) {
     const engine = registered()
     const out = await runCommand(engine, 'sapp-theme', byId(id).title.toLowerCase())
     const set = engine.calls.filter(c => c.path === 'theme.set').at(-1).args[0]
@@ -248,11 +247,13 @@ function litCells(svg) {
   return cells
 }
 
-// The final picture of a scene as cells: the veiled class fills, then the lit layer over them.
-function pictureOf(svg) {
+// The final picture of a scene as cells, in a light or a dark window: the veiled class fills, then the lit layer.
+function pictureOf(svg, mode = 'light') {
   const [css] = svg.match(/<style>(.*?)<\/style>/s).slice(1)
-  const fills = new Map([...css.matchAll(/\.(c\d+)\{fill:(#[0-9A-Fa-f]{6})\}/g)].map(m => [m[1], m[2]]))
-  const [, veilFill, veilAlpha] = css.match(/\.veil\{fill:(#[0-9A-Fa-f]{6});opacity:([.\d]+)\}/)
+  const [lightCss, darkCss] = css.split('@media (prefers-color-scheme: dark){')
+  const block = mode === 'dark' && darkCss ? lightCss + darkCss : lightCss
+  const fills = new Map([...block.matchAll(/\.(c\d+)\{fill:(#[0-9A-Fa-f]{6})\}/g)].map(m => [m[1], m[2]]))
+  const [, veilFill, veilAlpha] = [...block.matchAll(/\.veil\{fill:(#[0-9A-Fa-f]{6});opacity:([.\d]+)\}/g)].at(-1)
   const picture = new Map()
   for (const [, cls, d] of svg.matchAll(/<path class="(c\d+)" d="([^"]*)"/g)) {
     const seenColor = rgb(fills.get(cls)).map((v, i) => v * (1 - Number(veilAlpha)) + rgb(veilFill)[i] * Number(veilAlpha))
@@ -271,47 +272,69 @@ const smooth = (a, b, x) => {
 }
 const match = (c, target) => 1 - smooth(0.05, 0.14, dist(c, rgb(target)))
 
-test('one scroll cycle of the monitoring graph, with the shader\'s own tolerances, paints only inside the panel', () => {
-  const source = readFileSync(new URL('it-room.shader.ts', hooks), 'utf8')
-  const edges = source.match(/smoothstep\((\d+), (\d+), sceneX\) \* \(1 - smoothstep\((\d+), (\d+), sceneX\)/)
-  const left = Number(edges[2])
-  const right = Number(edges[3])
-  const line = MARKERS.it.graph
-  const picture = pictureOf(IT_SVG)
-  // Panel edges in cells, from the build script's own constant (scene units are 4 a cell).
-  assert.equal(left, GRAPH_PANEL.x * 4)
-  assert.equal(right, (GRAPH_PANEL.x + GRAPH_PANEL.w) * 4)
-  const panel = (x, y) => x >= GRAPH_PANEL.x && x < GRAPH_PANEL.x + GRAPH_PANEL.w && y >= GRAPH_PANEL.y && y < GRAPH_PANEL.y + GRAPH_PANEL.h
+// The shader's own scene-x line, evaluated: from a uv x and the window size, where on the 768-unit scene the pixel is.
+const sceneXOf = source => {
+  const expr = source.match(/const sceneX = (.*)$/m)[1].replace(/p\.uv\.x/g, 'uvx').replace(/size\.x/g, 'size[0]').replace(/size\.y/g, 'size[1]')
+  return new Function('uvx', 'size', 'max', 'min', `return ${expr}`)
+}
+// The uv x at which a window of this size, fitting the 768 by 544 scene with `slice`, shows scene x.
+const uvXOf = (sceneX, [w, h]) => ((sceneX - 384) * Math.max(w / 768, h / 544) + w / 2) / w
+const WINDOWS = [[768, 544], [1512, 945], [1000, 1400], [2400, 600]]
 
-  // The shader per cell: the line one step over or one period over, kept where the pixel is
-  // the panel's back colour or the line, and between the panel's edges.
-  const painted = (pic, { byPosition }) => {
-    const out = []
-    for (let shift = 0; shift < 16; shift++) {
-      for (let y = 0; y < 136; y++) {
-        for (let x = 0; x < 192; x++) {
-          const at = (xx, yy) => pic.get(`${xx},${yy}`) ?? [0, 0, 0]
-          const live = Math.max(match(at(x + shift, y), line), match(at(x + shift - 16, y), line))
-          const inside = Math.max(match(at(x, y), line), match(at(x, y), GRAPH_BG))
-          // The shader reads the cell's centre: x 4 + 2 scene units.
-          const across = smooth(39, 40, x * 4 + 2) * (1 - smooth(248, 249, x * 4 + 2))
-          if (live * inside * (byPosition ? across : 1) > 0.01 && !panel(x, y)) out.push(`${x},${y}`)
+test('the shader\'s scene-x line maps a uv back to the scene x at every window shape; a wrong fit turns it red', () => {
+  const source = readFileSync(new URL('it-room.shader.ts', hooks), 'utf8')
+  const check = fn => WINDOWS.every(win => [42, 100, 246, 600].every(x => Math.abs(fn(uvXOf(x, win), win, Math.max, Math.min) - x) < 1e-6))
+
+  assert.equal(check(sceneXOf(source)), true)
+  // Controls: the fit written the other way round (min, "contain") and a shifted centre do not pass.
+  assert.equal(check(sceneXOf(source.replace('max(size.x / 768', 'min(size.x / 768').replace(/\bmax\(/g, 'min('))), false)
+  assert.equal(check(sceneXOf(source.replace('+ 384', '+ 380'))), false)
+})
+
+for (const mode of ['light', 'dark']) {
+  test(`one scroll cycle of the monitoring graph, with the shader's own tolerances and scene-x line, paints only inside the panel (${mode} window)`, () => {
+    const source = readFileSync(new URL('it-room.shader.ts', hooks), 'utf8')
+    const edges = source.match(/smoothstep\((\d+), (\d+), sceneX\) \* \(1 - smoothstep\((\d+), (\d+), sceneX\)/)
+    const line = MARKERS.it.graph
+    const picture = pictureOf(IT_SVG, mode)
+    const sceneX = sceneXOf(source)
+    // The ramps lie inside the panel: it spans cells x to x + w, which is 4 times that in scene units.
+    assert.equal(Number(edges[1]), GRAPH_PANEL.x * 4)
+    assert.equal(Number(edges[4]), (GRAPH_PANEL.x + GRAPH_PANEL.w) * 4)
+    assert.ok(Number(edges[2]) > Number(edges[1]) && Number(edges[3]) < Number(edges[4]))
+    const panel = (x, y) => x >= GRAPH_PANEL.x && x < GRAPH_PANEL.x + GRAPH_PANEL.w && y >= GRAPH_PANEL.y && y < GRAPH_PANEL.y + GRAPH_PANEL.h
+
+    // The shader per cell: the line one step over or one period over, kept where the pixel is the panel's
+    // back colour or the line, and between the panel's edges (the scene x taken from the shader's own line,
+    // in a window of the shader's own shape).
+    const painted = (pic, { byPosition, win = WINDOWS[1] }) => {
+      const out = []
+      for (let shift = 0; shift < 16; shift++) {
+        for (let y = 0; y < 136; y++) {
+          for (let x = 0; x < 192; x++) {
+            const at = (xx, yy) => pic.get(`${xx},${yy}`) ?? [0, 0, 0]
+            const live = Math.max(match(at(x + shift, y), line), match(at(x + shift - 16, y), line))
+            const inside = Math.max(match(at(x, y), line), match(at(x, y), GRAPH_BG))
+            const sx = sceneX(uvXOf(x * 4 + 2, win), win, Math.max, Math.min)
+            const across = smooth(Number(edges[1]), Number(edges[2]), sx) * (1 - smooth(Number(edges[3]), Number(edges[4]), sx))
+            if (live * inside * (byPosition ? across : 1) > 0.01 && !panel(x, y)) out.push(`${x},${y}`)
+          }
         }
       }
+      return out
     }
-    return out
-  }
 
-  assert.deepEqual(painted(picture, { byPosition: true }), [])
-  // Near-colour control: a cell 0.04 from the back colour, outside the panel on a row the line visits,
-  // must stay unpainted by position, and is painted when only colour decides.
-  const near = [...rgb(GRAPH_BG)].map((v, i) => v + [7, 5, 6][i])
-  assert.ok(dist(near, rgb(GRAPH_BG)) > 0.03 && dist(near, rgb(GRAPH_BG)) < 0.05)
-  const withNear = new Map(picture)
-  withNear.set('66,16', near)
-  assert.deepEqual(painted(withNear, { byPosition: true }), [])
-  assert.ok(painted(withNear, { byPosition: false }).includes('66,16'))
-})
+    for (const win of WINDOWS) assert.deepEqual(painted(picture, { byPosition: true, win }), [], win.join('x'))
+    // Near-colour control: a cell 0.04 from the back colour, outside the panel on a row the line visits,
+    // stays unpainted by position, and is painted when only colour decides.
+    const near = [...rgb(GRAPH_BG)].map((v, i) => v + [7, 5, 6][i])
+    assert.ok(dist(near, rgb(GRAPH_BG)) > 0.03 && dist(near, rgb(GRAPH_BG)) < 0.05)
+    const withNear = new Map(picture)
+    withNear.set('66,16', near)
+    assert.deepEqual(painted(withNear, { byPosition: true }), [])
+    assert.ok(painted(withNear, { byPosition: false }).includes('66,16'))
+  })
+}
 
 // ---- the board reads in every theme -----------------------------------------------------------------
 
@@ -327,24 +350,53 @@ const contrast = (a, b) => {
   return (hi + 0.05) / (lo + 0.05)
 }
 
-test('the board ink reads on the board face at 4.5 to 1 or more: day, dark window and night, both above every veil', () => {
+test('the board ink reads on the board face at 4.5 to 1 or more in a light and a dark window, both above every veil', () => {
   const ink = MARKERS.classroom.ink.toUpperCase()
-  for (const [name, svg] of [['day (light and dark window)', SCENE_SVG], ['night', byId('acca-night').svg]]) {
-    const lit = litCells(svg)
-    const inkCells = [...lit].filter(([, c]) => c === ink).map(([k]) => k)
-    assert.ok(inkCells.length > 50, name)
-    // Both colours are in the lit layer, painted after every veil of the scene, so the veils cannot touch them.
-    assert.ok(svg.indexOf(`<path fill="${ink}"`) > svg.lastIndexOf('class="veil"'), name)
-    if (name === 'night') assert.ok(svg.indexOf(`<path fill="${ink}"`) > svg.indexOf('class="dusk"'))
-    const faces = new Set()
-    for (const k of inkCells) {
-      const [x, y] = k.split(',').map(Number)
-      for (const n of [`${x - 1},${y}`, `${x + 1},${y}`, `${x},${y - 1}`, `${x},${y + 1}`]) if (lit.has(n) && lit.get(n) !== ink) faces.add(lit.get(n))
-    }
-    assert.ok(faces.size >= 1, name)
-    for (const face of faces) assert.ok(contrast(ink, face) >= 4.5, `${name}: ${face} vs ${ink} is ${contrast(ink, face).toFixed(2)}`)
+  const lit = litCells(SCENE_SVG)
+  const inkCells = [...lit].filter(([, c]) => c === ink).map(([k]) => k)
+  assert.ok(inkCells.length > 50)
+  // Both colours are in the lit layer, painted after the veil of the scene, so no window kind can touch them.
+  assert.ok(SCENE_SVG.indexOf(`<path fill="${ink}"`) > SCENE_SVG.lastIndexOf('class="veil"'))
+  const faces = new Set()
+  for (const k of inkCells) {
+    const [x, y] = k.split(',').map(Number)
+    for (const n of [`${x - 1},${y}`, `${x + 1},${y}`, `${x},${y - 1}`, `${x},${y + 1}`]) if (lit.has(n) && lit.get(n) !== ink) faces.add(lit.get(n))
   }
+  assert.ok(faces.size >= 1)
+  for (const face of faces) assert.ok(contrast(ink, face) >= 4.5, `${face} vs ${ink} is ${contrast(ink, face).toFixed(2)}`)
   // Controls: the measure is live. The old arrangement, ink above and face under the dark veil, fails it.
   assert.ok(contrast('#5B2BB0', '#E6E2DE') > 4.5)
   assert.ok(contrast('#5B2BB0', '#2D2B27') < 4.5)
+})
+
+// ---- the people of the IT room read against what is around them ---------------------------------------------
+
+// Mean luminance of a person's cells against the mean luminance of the one-cell ring around them,
+// in the final picture of a light or a dark window.
+function personContrast(svg, mode, person) {
+  const picture = pictureOf(svg, mode)
+  const own = personCells(person)
+  const ring = new Set()
+  for (const k of own) {
+    const [x, y] = k.split(',').map(Number)
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!own.has(`${x + dx},${y + dy}`)) ring.add(`${x + dx},${y + dy}`)
+  }
+  const mean = keys => [...keys].reduce((sum, k) => sum + luminance('#' + picture.get(k).map(v => Math.round(v).toString(16).padStart(2, '0')).join('')), 0) / keys.size
+  const [hi, lo] = [mean(own), mean(ring)].sort((a, b) => b - a)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+test('each person in the IT room reads at 3 to 1 or more against their surround, in a light and a dark window', () => {
+  for (const mode of ['light', 'dark']) {
+    for (const person of IT_PEOPLE) assert.ok(personContrast(IT_SVG, mode, person) >= 3, `${mode} char ${person.n}: ${personContrast(IT_SVG, mode, person).toFixed(2)}`)
+  }
+  // Controls: the measure is live. The same room with no rim fails it for someone in some window, and a
+  // person measured in a room with nobody in it reads as nothing special.
+  const bare = buildItWithoutRim()
+  const failing = ['light', 'dark'].flatMap(mode => IT_PEOPLE.filter(person => personContrast(bare, mode, person) < 3))
+  assert.ok(failing.length > 0)
+  assert.equal(buildItWithoutPeople().includes(`<path fill="${RIM}"`), false)
+  // The rim is dark ink, never a recolouring: a person's own cells keep the sprite's colours.
+  const lit = litCells(IT_SVG)
+  assert.equal(IT_PEOPLE.every(person => [...personCells(person)].every(k => lit.has(k))), true)
 })

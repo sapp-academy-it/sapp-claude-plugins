@@ -7,7 +7,7 @@ Tạo bởi SAPP IT Department, © 2026.
 
 ## sapp-brand
 
-`sapp-brand` là một bộ giao diện (theme) cho Claude Code của SAPP, dưới dạng mod (plugin có `hooks/register.js`). Có tám giao diện, mỗi giao diện gồm màu sáng và tối, và tùy giao diện có thêm nền (Svg, có thể có shader). Người dùng đổi giao diện bằng lệnh `/sapp-theme`. Ngoài giao diện, mod còn làm hai việc không đổi theo giao diện:
+`sapp-brand` là một bộ giao diện (theme) cho Claude Code của SAPP, dưới dạng mod (plugin có `hooks/register.js`). Có bảy giao diện, mỗi giao diện gồm màu sáng và tối, và tùy giao diện có thêm nền (Svg, có thể có shader). Người dùng đổi giao diện bằng lệnh `/sapp-theme`. Ngoài giao diện, mod còn làm hai việc không đổi theo giao diện:
 
 | Việc | Nơi hiện |
 | :-- | :-- |
@@ -19,16 +19,15 @@ Tạo bởi SAPP IT Department, © 2026.
 
 | Số | Mã | Tên | Đội | Kiểu cửa sổ | Nội dung |
 | :-- | :-- | :-- | :-- | :-- | :-- |
-| 1 | `acca-classroom` | Lớp học ACCA (mặc định) | ACCA | Theo cửa sổ (sáng hoặc tối) | Lớp học pixel art, không có máy tính: bàn có sách, vở và máy tính cầm tay; bảng ghi ACCA cùng công thức và bảng cân đối nhỏ; lịch thi khoanh đỏ một ngày; thầy chỉ bảng bằng thước, vài học viên giơ tay. Chuyển động (shader): quạt trần quay chậm, bụi phấn trôi, bảng sáng nhẹ dưới con trỏ. Màu SAPP |
-| 2 | `acca-night` | Lớp học ACCA ban đêm | ACCA | Tối (`overrideColorScheme: dark`) | Cùng lớp học, phủ thêm một lớp xanh đêm (cùng shader). Bảng màu xanh đêm, vẫn nhấn vàng SAPP |
-| 3 | `marketing-room` | Phòng Marketing | Marketing | Theo cửa sổ (sáng hoặc tối) | Pixel art: bàn chiến dịch ở giữa trải kế hoạch, ba bốn người đứng bàn bạc; tường dán poster và bảng ý tưởng; bảng KPI cột đang tăng; góc nội dung có đèn ring light, máy quay trên chân đế, điện thoại; góc làm việc chỉ có hai bàn máy tính. Chuyển động (shader): cột KPI phập phồng nhẹ, ring light thở chậm, thỉnh thoảng một trái tim bay lên từ điện thoại. Màu SAPP |
-| 4 | `marketing-board` | Bảng ý tưởng | Marketing | Sáng (`overrideColorScheme: light`) | Lưới giấy ghi nhớ vàng và trắng như kế hoạch nội dung, vẽ bằng mã. Giấy nhấc nhẹ (sáng lên, đổ bóng) dưới con trỏ (shader). Màu SAPP |
-| 5 | `it-room` | Phòng IT | IT | Tối (`overrideColorScheme: dark`) | Pixel art về đêm: ba tủ rack có đèn LED, một tủ mở cửa và một người cầm laptop kiểm tra, cáp gọn; hai bàn có hai màn hình mỗi bàn; màn hình giám sát lớn trên tường; cốc cà phê, chậu cây. Chuyển động (shader): đèn LED nhấp nháy chậm, đồ thị giám sát cuộn, thỉnh thoảng một đèn trạng thái chuyển hổ phách rồi về xanh. Bảng màu xanh đêm |
-| 6 | `it-blueprint` | Bản vẽ mạng | IT | Tối (`overrideColorScheme: dark`) | Sơ đồ mạng nét mảnh trên nền xanh đậm, vẽ bằng mã; gói tin chạy chậm dọc các đường link (shader). Bảng màu xanh đêm |
-| 7 | `sapp-dots` | Chấm vàng SAPP | Chung | Theo cửa sổ | Lưới chấm vàng SAPP to dần về góc dưới bên phải, vẽ bằng mã, tĩnh. Màu SAPP |
-| 8 | `sapp-plain` | SAPP cơ bản | Chung | Theo cửa sổ | Chỉ màu SAPP, không có nền |
+| 1 | `acca-classroom` | Lớp học ACCA (mặc định) | ACCA | Theo cửa sổ: sáng hoặc tối | Lớp học pixel art, không có máy tính: bàn có sách, vở và máy tính cầm tay; bảng ghi ACCA cùng công thức và bảng cân đối nhỏ; lịch thi khoanh đỏ một ngày; thầy chỉ bảng bằng thước, vài học viên giơ tay. Chuyển động (shader): quạt trần quay chậm, bụi phấn trôi, bảng sáng nhẹ dưới con trỏ. Màu SAPP |
+| 2 | `marketing-room` | Phòng Marketing | Marketing | Theo cửa sổ: sáng hoặc tối | Pixel art: bàn chiến dịch ở giữa trải kế hoạch, bốn người đứng bàn bạc; tường dán poster và bảng ý tưởng; bảng KPI cột đang tăng; góc nội dung có đèn ring light, máy quay trên chân đế, điện thoại; góc làm việc chỉ có hai bàn máy tính. Chuyển động (shader): cột KPI cao lên rồi hạ nhẹ, ring light thở chậm, thỉnh thoảng một trái tim bay lên từ điện thoại. Màu SAPP |
+| 3 | `marketing-board` | Bảng ý tưởng | Marketing | Theo cửa sổ: nền sáng khi sáng, ván bần tối khi tối | Lưới giấy ghi nhớ vàng và trắng như kế hoạch nội dung, vẽ bằng mã (cùng các tờ giấy ở cả hai chế độ). Giấy nhấc nhẹ (sáng lên, đổ bóng) dưới con trỏ (shader). Màu SAPP |
+| 4 | `it-room` | Phòng IT | IT | Theo cửa sổ: phòng ban ngày sáng, phòng ban đêm tối | Pixel art: ba tủ rack có đèn LED, một tủ mở cửa và một người cầm laptop kiểm tra, cáp gọn; hai bàn có hai màn hình mỗi bàn; màn hình giám sát lớn trên tường; cốc cà phê, chậu cây. Người có viền tối một ô để rõ ở cả hai chế độ. Chuyển động (shader): đèn LED nhấp nháy chậm, đồ thị giám sát cuộn, thỉnh thoảng một đèn trạng thái chuyển hổ phách rồi về xanh. Màu SAPP khi sáng, xanh đêm khi tối |
+| 5 | `it-blueprint` | Bản vẽ mạng | IT | Theo cửa sổ: giấy xanh nhạt khi sáng, xanh đậm khi tối | Sơ đồ mạng nét mảnh, vẽ bằng mã; gói tin màu cam chạy chậm dọc các đường link (shader). Màu SAPP khi sáng, xanh đêm khi tối |
+| 6 | `sapp-dots` | Chấm vàng SAPP | Chung | Theo cửa sổ | Lưới chấm vàng SAPP to dần về góc dưới bên phải, vẽ bằng mã, tĩnh. Màu SAPP |
+| 7 | `sapp-plain` | SAPP cơ bản | Chung | Theo cửa sổ | Chỉ màu SAPP, không có nền |
 
-Các giao diện có chuyển động đều chạy bằng shader trên GPU và không nhấp nháy (mọi thay đổi dưới 3 lần mỗi giây). Giao diện làm cho một kiểu cửa sổ thì ép kiểu đó; các giao diện còn lại theo cửa sổ.
+Không giao diện nào ép kiểu cửa sổ (không dùng `overrideColorScheme`): mỗi nền và mỗi bảng màu có cả bản sáng lẫn tối, cửa sổ chọn bản nào thì hiện bản đó. Các giao diện có chuyển động đều chạy bằng shader trên GPU và không nhấp nháy (mọi thay đổi dưới 3 lần mỗi giây). Mã `acca-night` của phiên bản trước đã bỏ vì trùng với `acca-classroom` ở chế độ tối; ai đã lưu mã đó sẽ quay về `acca-classroom`.
 
 ![Ảnh xem trước: mỗi giao diện một hàng, chế độ sáng bên trái, tối bên phải, có ghi tên](plugins/sapp-brand/preview.png)
 
@@ -38,8 +37,8 @@ Các giao diện có chuyển động đều chạy bằng shader trên GPU và 
 
 ```text
 /sapp-theme                    # liệt kê các giao diện, đánh dấu cái đang dùng
-/sapp-theme acca-night         # theo mã
-/sapp-theme 3                  # theo số trong danh sách (Phòng Marketing)
+/sapp-theme it-room            # theo mã
+/sapp-theme 2                  # theo số trong danh sách (Phòng Marketing)
 /sapp-theme phong it           # theo tên (không phân biệt hoa thường, có hoặc không dấu)
 ```
 

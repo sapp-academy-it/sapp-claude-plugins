@@ -235,6 +235,17 @@ export class Canvas {
   person(n, col, row, x, y, opts = {}) {
     this.blit(`characters/char_${n}.png`, x, y, { sx: col * 16, sy: row * 32, w: 16, h: 32, ...opts })
   }
+  // The same frame painted in the lit layer, above the veils: sprite colours as drawn, so the
+  // person stays clearly visible in a scene that is muted on purpose. Pixels at least half opaque.
+  litPerson(n, col, row, x, y, { flip = false } = {}) {
+    const img = sprite(`characters/char_${n}.png`)
+    for (let j = 0; j < 32; j++) {
+      for (let i = 0; i < 16; i++) {
+        const o = ((row * 32 + j) * img.width + col * 16 + (flip ? 15 - i : i)) * 4
+        if (img.rgba[o + 3] >= 128) this.litPx(x + i, y + j, toHex([img.rgba[o], img.rgba[o + 1], img.rgba[o + 2]]))
+      }
+    }
+  }
   text(str, x, y, c, put = 'px') {
     let at = x
     for (const ch of str) {
@@ -649,7 +660,18 @@ export const MARKETING_ALT =
 
 // ---- the IT room (dark) ---------------------------------------------------------------
 
-const IROOM = {
+// The IT room by day (a light wall and floor, lights on) and by night. The two differ only in
+// the room's own cells; racks, desks, people and the lit layer are the same in both.
+const IROOM_DAY = {
+  wall: '#DCE5F2',
+  wallTop: '#C9D5E8',
+  rail: '#9FB2D4',
+  wain: '#C3D1E8',
+  base: '#7F93B8',
+  floorA: '#CFD9EA',
+  floorB: '#C3CFE4',
+}
+const IROOM_NIGHT = {
   wall: '#1D2545',
   wallTop: '#161C38',
   rail: '#2D3866',
@@ -658,6 +680,7 @@ const IROOM = {
   floorA: '#1A2140',
   floorB: '#171D38',
 }
+const itNight = c => Object.entries(IROOM_DAY).find(([, v]) => v === c.toUpperCase())?.[0]
 
 // A server rack 18 wide and 44 tall: eight slots, each with LEDs.
 function rack(cv, x, y, open, m) {
@@ -682,10 +705,34 @@ function rack(cv, x, y, open, m) {
   }
 }
 
-function itRoom() {
-  const cv = new Canvas(IROOM.wall)
+// Who is in the IT room (character sheets): the inspector at the open rack and the two at desks.
+export const INSPECTOR = 3
+const DESK_A = 1
+const DESK_B = 4
+// Frame, position and surround of each person: the inspector, then the two seated at desks.
+export const IT_PEOPLE = [
+  { n: INSPECTOR, col: 1, row: 2, x: 116, y: 28 },
+  { n: DESK_A, col: 4, row: 1, x: 34, y: 75 },
+  { n: DESK_B, col: 3, row: 1, x: 90, y: 101 },
+]
+// The cells a frame paints (pixels at least half opaque), as 'x,y' keys.
+export function personCells({ n, col, row, x, y }) {
+  const img = sprite(`characters/char_${n}.png`)
+  const out = new Set()
+  for (let j = 0; j < 32; j++) for (let i = 0; i < 16; i++) if (img.rgba[((row * 32 + j) * img.width + col * 16 + i) * 4 + 3] >= 128) out.add(`${x + i},${y + j}`)
+  return out
+}
+// A one-cell dark rim around each person, in the lit layer (the pixel-art outline): the sprite itself is
+// never touched, and the person reads against a light day wall and a dark night wall alike.
+export const RIM = '#0B1636'
+
+// `people: false` builds the same room with nobody in it (the contrast test measures them against it).
+function itRoom({ people = true, outline = true } = {}) {
+  const cv = new Canvas(IROOM_DAY.wall)
   const m = MARKERS.it
-  paintRoom(cv, IROOM)
+  paintRoom(cv, IROOM_DAY)
+  // Ceiling lights: two long panels, on.
+  for (const x of [20, 120]) cv.box(x, 0, 28, 2, '#FFF6D8')
 
   // The big monitoring screen on the wall: three panels, the left one a graph.
   cv.box(6, 3, 94, 33, P.outline)
@@ -717,7 +764,7 @@ function itRoom() {
 
   // Tidy cables: a tray along the top of the racks, drops, and floor trunking.
   cv.box(106, 3, 76, 2, P.steelLo)
-  const cables = ['#4FA3FF', '#F2C94C', '#FF8A5C', '#5FD08A']
+  const cables = ['#3F6BFF', '#F2C94C', '#FF8A5C', '#5FD08A']
   cables.forEach((c, i) => {
     cv.box(113 + i, 5, 1, 3, c)
     cv.box(165 + i, 5, 1, 3, c)
@@ -730,33 +777,43 @@ function itRoom() {
   })
 
   // The inspector: side view, a laptop in his arms, facing the open rack.
-  cv.person(2, 1, 2, 116, 28)
-  laptop(cv, 128, 44, '#0A1F3A')
-  cv.litBox(129, 45, 10, 6, '#13203A')
-  cv.litBox(130, 47, 6, 1, '#B8C4F0')
-  cv.litBox(130, 49, 4, 1, '#5FD08A')
+  laptop(cv, 132, 44, '#0A1F3A')
+  cv.litBox(133, 45, 10, 6, '#13203A')
+  cv.litBox(134, 47, 6, 1, '#B8C4F0')
+  cv.litBox(134, 49, 4, 1, '#5FD08A')
+
+  // The people, last, in the lit layer: each with a one-cell rim.
+  if (people) {
+    for (const person of IT_PEOPLE) {
+      const own = personCells(person)
+      if (outline) for (const k of own) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const [x, y] = k.split(',').map(Number); if (!own.has(`${x + dx},${y + dy}`)) cv.litPx(x + dx, y + dy, RIM) }
+      cv.litPerson(person.n, person.col, person.row, person.x, person.y)
+    }
+  }
 
   // Two desks, each with two monitors and a person.
   const station = (dx, dy, who, col, pcs) => {
     cv.blit('furniture/DESK_FRONT.png', dx, dy)
     cv.blit(`furniture/PC_FRONT_ON_${pcs[0]}.png`, dx + 2, dy - 1)
     cv.blit(`furniture/PC_FRONT_ON_${pcs[1]}.png`, dx + 18, dy - 1)
-    cv.person(who, col, 1, dx + 24, dy + 13)
     cv.blit('furniture/WOODEN_CHAIR_BACK.png', dx + 24, dy + 22)
   }
-  station(10, 62, 4, 4, [1, 2])
-  station(66, 88, 0, 3, [3, 1])
+  station(10, 62, DESK_A, 4, [1, 2])
+  station(66, 88, DESK_B, 3, [3, 1])
   // A coffee cup on the second desk, a plant by the wall and a big one in the corner.
   cv.blit('furniture/COFFEE.png', 66 + 34, 88 + 7)
   cv.blit('furniture/PLANT.png', 182, 18)
   cv.blit('furniture/LARGE_PLANT.png', 150, 88)
 
-  const shade = ['#0B1636', '.36']
-  return serialize(cv, { bg: IROOM.wall, veil: { light: shade, dark: shade }, dark: null })
+  return serialize(cv, {
+    bg: IROOM_DAY.wall,
+    veil: { light: ['#FAF8F3', '.18'], dark: ['#0B1636', '.36'] },
+    dark: { bg: IROOM_NIGHT.wall, of: c => IROOM_NIGHT[itNight(c)] ?? c },
+  })
 }
 
 export const IT_ALT =
-  'Phòng IT kiểu pixel art về đêm: màn hình giám sát lớn trên tường, ba tủ rack có đèn LED và một tủ đang mở cửa, một người cầm laptop kiểm tra, hai bàn có hai màn hình, cáp gọn gàng, cốc cà phê và chậu cây'
+  'Phòng IT kiểu pixel art, sáng ban ngày và tối về đêm: màn hình giám sát lớn trên tường, ba tủ rack có đèn LED và một tủ đang mở cửa, một người cầm laptop kiểm tra, hai bàn có hai màn hình, cáp gọn gàng, cốc cà phê và chậu cây'
 
 // ---- the modules -----------------------------------------------------------------------
 
@@ -767,6 +824,9 @@ export const SCENES = {
 }
 
 export const buildScene = (name = 'classroom') => SCENES[name].build()
+// The IT room with nobody in it, for measuring the people against their surroundings.
+export const buildItWithoutPeople = () => itRoom({ people: false })
+export const buildItWithoutRim = () => itRoom({ outline: false })
 
 export function buildSceneModule(name = 'classroom') {
   const { build, names, alt } = SCENES[name]

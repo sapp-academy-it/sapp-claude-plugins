@@ -4,7 +4,7 @@ import { test } from 'node:test'
 
 import { CREDIT, SPINNER_TEXT, STORE_KEY, register } from '../hooks/register.js'
 import { SCENE_SVG } from '../hooks/scene.js'
-import { THEMES, dotsSvg, nightOf, pickTheme, themeOrDefault } from '../hooks/themes.js'
+import { THEMES, dotsSvg, pickTheme, themeOrDefault } from '../hooks/themes.js'
 import { tokens } from '../hooks/tokens.js'
 import { makeColors } from '../hooks/make-colors.js'
 import { buildSceneModule } from '../scripts/build-scene.mjs'
@@ -30,11 +30,11 @@ const inputs = (id, mode) => THEMES.find(t => t.id === id).colors.inputs[mode]
 test('the registry lists exactly these theme ids, in this order, the default first', () => {
   assert.deepEqual(
     THEMES.map(t => t.id),
-    ['acca-classroom', 'acca-night', 'marketing-room', 'marketing-board', 'it-room', 'it-blueprint', 'sapp-dots', 'sapp-plain'],
+    ['acca-classroom', 'marketing-room', 'marketing-board', 'it-room', 'it-blueprint', 'sapp-dots', 'sapp-plain'],
   )
   assert.deepEqual(
     THEMES.map(t => t.title),
-    ['Lớp học ACCA', 'Lớp học ACCA ban đêm', 'Phòng Marketing', 'Bảng ý tưởng', 'Phòng IT', 'Bản vẽ mạng', 'Chấm vàng SAPP', 'SAPP cơ bản'],
+    ['Lớp học ACCA', 'Phòng Marketing', 'Bảng ý tưởng', 'Phòng IT', 'Bản vẽ mạng', 'Chấm vàng SAPP', 'SAPP cơ bản'],
   )
 })
 
@@ -57,22 +57,22 @@ test('exact SAPP colours of acca-classroom, the two marketing themes, sapp-dots 
   }
 })
 
-test('exact colours of acca-night and the two IT themes, light and dark, and they differ from the SAPP cream', () => {
-  for (const id of ['acca-night', 'it-room', 'it-blueprint']) {
-  const light = inputs(id, 'light')
-  const dark = inputs(id, 'dark')
+test('exact colours of the two IT themes: the SAPP cream in a light window, the night blue in a dark one', () => {
+  for (const id of ['it-room', 'it-blueprint']) {
+    const light = inputs(id, 'light')
+    const dark = inputs(id, 'dark')
 
-  assert.equal(light['gray-20'], '#eef1f8')
-  assert.equal(light['gray-400'], '#667090')
-  assert.equal(light['gray-600'], '#46506b')
-  assert.equal(light['gray-900'], '#111a33')
-  assert.equal(dark['gray-900'], '#0e1430')
-  assert.equal(dark['gray-800'], '#18213f')
-  assert.equal(dark['gray-400'], '#98a2c0')
-  assert.equal(dark['gray-200'], '#b8c0d8')
-  assert.equal(dark['gray-50'], '#eef1f8')
-  assert.equal(light['role-danger-450'], '#d64545')
-  assert.notEqual(light['gray-20'], inputs('acca-classroom', 'light')['gray-20'])
+    assert.equal(light['gray-20'], '#faf8f3', id)
+    assert.equal(light['gray-400'], '#79736a', id)
+    assert.equal(light['gray-900'], '#1a1916', id)
+    assert.equal(dark['gray-900'], '#0e1430', id)
+    assert.equal(dark['gray-800'], '#18213f', id)
+    assert.equal(dark['gray-400'], '#98a2c0', id)
+    assert.equal(dark['gray-200'], '#b8c0d8', id)
+    assert.equal(dark['gray-50'], '#eef1f8', id)
+    assert.equal(light['role-danger-450'], '#d64545', id)
+    // Not the SAPP ink in the dark half.
+    assert.notEqual(dark['gray-900'], inputs('acca-classroom', 'dark')['gray-900'], id)
   }
 })
 
@@ -88,7 +88,6 @@ test('backdrop and shader per theme: each scene has its own id and shader, dots 
   const by = Object.fromEntries(THEMES.map(t => [t.id, t]))
   const want = {
     'acca-classroom': ['sapp-acca-classroom', 'classroom'],
-    'acca-night': ['sapp-acca-night', 'classroom'],
     'marketing-room': ['sapp-marketing-room', 'marketing'],
     'marketing-board': ['sapp-marketing-board', 'marketing-board'],
     'it-room': ['sapp-it-room', 'it-room'],
@@ -122,15 +121,27 @@ test('a first start with an empty store sets the default theme: acca-classroom w
 })
 
 test('a stored id sets that theme at the next start', async () => {
-  const engine = registered(register, { store: new Map([[STORE_KEY, 'acca-night']]) })
+  const engine = registered(register, { store: new Map([[STORE_KEY, 'it-room']]) })
   await startSession(engine)
 
-  assert.equal(lastSet(engine).backdrop.scene, 'sapp-acca-night')
+  assert.equal(lastSet(engine).backdrop.scene, 'sapp-it-room')
   assert.equal(lastSet(engine).colors.inputs.dark['gray-900'], '#0e1430')
 })
 
+test('the removed acca-night id, stored by an earlier version, falls back to acca-classroom', async () => {
+  const engine = registered(register, { store: new Map([[STORE_KEY, 'acca-night']]) })
+  await startSession(engine)
+
+  assert.equal(lastSet(engine).backdrop.scene, 'sapp-acca-classroom')
+  assert.equal(themeOrDefault('acca-night').id, 'acca-classroom')
+  assert.equal(THEMES.some(t => t.id === 'acca-night'), false)
+  // It is no longer a name /sapp-theme knows, either.
+  assert.equal(pickTheme('acca-night'), undefined)
+  assert.equal(pickTheme('Lớp học ACCA ban đêm'), undefined)
+})
+
 test('an unknown, removed or malformed stored id falls back to the default theme', async () => {
-  for (const bad of ['sapp-hologram', '', 42, null, { id: 'acca-night' }, 'ACCA-NIGHT']) {
+  for (const bad of ['sapp-hologram', '', 42, null, { id: 'it-room' }, 'IT-ROOM']) {
     const engine = registered(register, { store: new Map([[STORE_KEY, bad]]) })
     await startSession(engine)
 
@@ -152,12 +163,13 @@ test('a store that throws still gives the default theme and the credit line', as
 test('/sapp-theme <id> sets that theme with its colours and backdrop, and answers in Vietnamese', async () => {
   const engine = registered()
   await startSession(engine)
-  const out = await runCommand(engine, 'sapp-theme', 'acca-night')
+  const out = await runCommand(engine, 'sapp-theme', 'it-room')
   const set = lastSet(engine)
 
-  assert.equal(set.backdrop.scene, 'sapp-acca-night')
-  assert.equal(set.colors.inputs.light['gray-20'], '#eef1f8')
-  assert.equal(out.text, 'Đã đổi sang "Lớp học ACCA ban đêm" và lưu lại cho các phiên sau.')
+  assert.equal(set.backdrop.scene, 'sapp-it-room')
+  assert.equal(set.colors.inputs.light['gray-20'], '#faf8f3')
+  assert.equal(set.colors.inputs.dark['gray-900'], '#0e1430')
+  assert.equal(out.text, 'Đã đổi sang "Phòng IT" và lưu lại cho các phiên sau.')
   assert.equal(out.isTextDisplayOnly, true)
 })
 
@@ -173,9 +185,9 @@ test('switching to the plain theme sets colours and no backdrop at all', async (
 
 test('a theme can be picked by list number, by title in any case, and by title without accents', async () => {
   const picks = [
-    ['7', 'sapp-dots'],
+    ['6', 'sapp-dots'],
     ['  Chấm vàng SAPP ', 'sapp-dots'],
-    ['LOP HOC ACCA BAN DEM', 'acca-night'],
+    ['PHONG IT', 'it-room'],
     ['saPP co ban', 'sapp-plain'],
   ]
   for (const [text, id] of picks) {
@@ -184,7 +196,7 @@ test('a theme can be picked by list number, by title in any case, and by title w
 
     assert.equal(engine.store.get(STORE_KEY), id, text)
   }
-  assert.equal(pickTheme('9'), undefined)
+  assert.equal(pickTheme('8'), undefined)
   assert.equal(pickTheme('0'), undefined)
   assert.equal(pickTheme('acca'), undefined)
 })
@@ -198,22 +210,21 @@ test('an unknown theme name changes nothing: no theme.set, nothing stored, the l
   assert.ok(out.text.startsWith('Không có giao diện "sapp-hologram".\nGiao diện SAPP, đang dùng: Chấm vàng SAPP.'))
 })
 
-test('/sapp-theme with no argument lists the eight themes and marks the one in use', async () => {
-  const engine = registered(register, { store: new Map([[STORE_KEY, 'acca-night']]) })
+test('/sapp-theme with no argument lists the seven themes and marks the one in use', async () => {
+  const engine = registered(register, { store: new Map([[STORE_KEY, 'it-room']]) })
   const out = await runCommand(engine, 'sapp-theme', '')
 
   assert.equal(
     out.text,
     [
-      'Giao diện SAPP, đang dùng: Lớp học ACCA ban đêm.',
+      'Giao diện SAPP, đang dùng: Phòng IT.',
       '1. Lớp học ACCA (acca-classroom): Lớp học pixel art: bảng ACCA, thầy chỉ bảng, quạt trần quay chậm (mặc định)',
-      '2. Lớp học ACCA ban đêm (acca-night): Lớp học pixel art về đêm, màu giao diện xanh đêm [đang dùng]',
-      '3. Phòng Marketing (marketing-room): Phòng Marketing pixel art: bàn chiến dịch, bảng KPI, góc quay nội dung',
-      '4. Bảng ý tưởng (marketing-board): Lưới giấy ghi nhớ vàng và trắng như kế hoạch nội dung, làm cho nền sáng',
-      '5. Phòng IT (it-room): Phòng IT pixel art về đêm: tủ rack, màn hình giám sát, đèn LED nhấp nháy chậm',
-      '6. Bản vẽ mạng (it-blueprint): Sơ đồ mạng nét mảnh trên nền xanh đậm, gói tin chạy chậm trên đường link',
-      '7. Chấm vàng SAPP (sapp-dots): Lưới chấm vàng SAPP tĩnh, nhẹ',
-      '8. SAPP cơ bản (sapp-plain): Chỉ màu SAPP, không nền',
+      '2. Phòng Marketing (marketing-room): Phòng Marketing pixel art: bàn chiến dịch, bảng KPI, góc quay nội dung',
+      '3. Bảng ý tưởng (marketing-board): Lưới giấy ghi nhớ vàng và trắng như kế hoạch nội dung; cửa sổ tối thì bảng thành ván bần tối',
+      '4. Phòng IT (it-room): Phòng IT pixel art: tủ rack, màn hình giám sát, đèn LED nhấp nháy chậm; sáng ban ngày, tối về đêm [đang dùng]',
+      '5. Bản vẽ mạng (it-blueprint): Sơ đồ mạng nét mảnh, giấy xanh nhạt khi sáng, xanh đậm khi tối; gói tin chạy chậm trên đường link',
+      '6. Chấm vàng SAPP (sapp-dots): Lưới chấm vàng SAPP tĩnh, nhẹ',
+      '7. SAPP cơ bản (sapp-plain): Chỉ màu SAPP, không nền',
       'Đổi bằng /sapp-theme <số, mã hoặc tên>. Nền và màu chỉ hiện ở tab Code của Desktop và trên mobile.',
     ].join('\n'),
   )
@@ -234,9 +245,9 @@ test('the choice round-trips through the store: switch, restart, same theme', as
 
 test('a build where theme.set throws: the switch is refused and nothing is stored', async () => {
   const engine = registered(register, { throwOn: 'theme.set' })
-  const out = await runCommand(engine, 'sapp-theme', 'acca-night')
+  const out = await runCommand(engine, 'sapp-theme', 'it-room')
 
-  assert.equal(out.text, 'Không áp dụng được "Lớp học ACCA ban đêm" trên bản Claude Code này.')
+  assert.equal(out.text, 'Không áp dụng được "Phòng IT" trên bản Claude Code này.')
   assert.equal(engine.store.has(STORE_KEY), false)
 })
 
@@ -325,7 +336,7 @@ test('tokens.json and the loaded copy in hooks/tokens.js hold the same values', 
 test('every backdrop Svg stays under the 131072-character limit, with room to spare', () => {
   const svgs = THEMES.filter(t => t.svg)
 
-  assert.equal(svgs.length, 7)
+  assert.equal(svgs.length, 6)
   for (const t of svgs) {
     assert.ok(t.svg.length < 131072, `${t.id} is ${t.svg.length} characters`)
     assert.ok(t.svg.length < 125000, `${t.id} is ${t.svg.length} characters`)
@@ -369,17 +380,6 @@ test('every backdrop is pure vector with nothing the engine refuses', () => {
   }
 })
 
-test('the night classroom is the day scene plus exactly one dusk veil before the lit screens', () => {
-  const night = THEMES[1].svg
-
-  assert.equal(night.split('<rect class="dusk"').length - 1, 1)
-  assert.ok(night.indexOf('class="veil"') < night.indexOf('class="dusk"'))
-  assert.ok(night.indexOf('class="dusk"') < night.indexOf('<path fill="#'))
-  assert.equal(night.length - SCENE_SVG.length, 75)
-  // Refusal: a scene with no veil is not dimmed silently.
-  assert.throws(() => nightOf('<svg><style></style></svg>'), /no veil/)
-})
-
 test('the dots scene is deterministic, uses circles only and grows toward the bottom-right', () => {
   assert.equal(dotsSvg(), dotsSvg())
   const dots = THEMES.find(t => t.id === 'sapp-dots').svg
@@ -395,7 +395,7 @@ test('the dots scene is deterministic, uses circles only and grows toward the bo
 
 // ---- the Backdrop hook ---------------------------------------------------------------
 
-test('the Backdrop hook draws each scene: a Shader over the Svg for the classroom and the night, an Svg alone for the dots', async () => {
+test('the Backdrop hook draws each scene: a Shader over the Svg for the classroom, an Svg alone for the dots', async () => {
   const engine = registered()
   const draw = scene => render(engine, 'Backdrop', { surface: 'desktop', props: { scene, plugin: 'sapp-brand' } })
 
@@ -403,10 +403,6 @@ test('the Backdrop hook draws each scene: a Shader over the Svg for the classroo
   assert.equal(day.type, 'Shader')
   assert.equal(day.props.module, './backdrop.shader.ts')
   assert.equal(day.props.children[0].props.source, SCENE_SVG)
-
-  const night = await draw('sapp-acca-night')
-  assert.equal(night.type, 'Shader')
-  assert.equal(night.props.children[0].props.source, THEMES[1].svg)
 
   const dots = await draw('sapp-dots')
   assert.equal(dots.type, 'Svg')
@@ -460,7 +456,7 @@ test('running every hook makes no call on $ beyond the pinned set', async () => 
   const engine = registered()
   await startSession(engine)
   await runCommand(engine, 'sapp-theme', '')
-  await runCommand(engine, 'sapp-theme', 'acca-night')
+  await runCommand(engine, 'sapp-theme', 'it-room')
   await render(engine, 'Backdrop', { surface: 'desktop', props: { scene: 'sapp-acca-classroom', plugin: 'sapp-brand' } })
   await render(engine, 'Spinner', { surface: 'desktop', props: { word: 'x', message: null, suffix: '…', mode: 'thinking' } })
   const used = [...new Set(engine.calls.map(c => c.path))].sort()
@@ -481,7 +477,7 @@ test('the "Desktop won\'t paint" filter goes red on a palette with unreadable te
 })
 
 test('a title typed in capitals with the letter Đ still matches', async () => {
-  assert.equal(pickTheme('LỚP HỌC ACCA BAN ĐÊM').id, 'acca-night')
+  assert.equal(pickTheme('PHÒNG IT').id, 'it-room')
   assert.equal(pickTheme('Đ'), undefined)
 })
 
@@ -524,12 +520,12 @@ test('the list marks the theme applied in this session, even when it could not b
   assert.equal(out.text.includes('(sapp-plain): Chỉ màu SAPP, không nền [đang dùng]'), false)
 })
 
-test('only the themes made for one window kind override it: night, IT and blueprint dark, the idea board light', async () => {
-  const want = { 'acca-night': 'dark', 'it-room': 'dark', 'it-blueprint': 'dark', 'marketing-board': 'light' }
+test('no theme forces a colour scheme: every switch leaves overrideColorScheme out, so the window decides', async () => {
   for (const t of THEMES) {
     const engine = registered()
     await runCommand(engine, 'sapp-theme', t.id)
 
-    assert.equal(lastSet(engine).overrideColorScheme, want[t.id], t.id)
+    assert.equal('overrideColorScheme' in lastSet(engine), false, t.id)
+    assert.equal(t.colorScheme, undefined, t.id)
   }
 })

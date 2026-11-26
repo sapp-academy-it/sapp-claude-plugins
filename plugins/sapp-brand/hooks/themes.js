@@ -15,16 +15,6 @@ export const DEFAULT_THEME_ID = 'acca-classroom'
 const W = 768
 const H = 544
 
-// The night classroom is the day classroom under one more veil of deep blue, drawn
-// after the room and before the lit PC screens, so the screens stay lit.
-export const nightOf = svg => {
-  const veil = `<rect class="veil" width="${W}" height="${H}"/>`
-  if (!svg.includes(veil) || !svg.includes('<style>')) throw new Error('scene has no veil to dim')
-  return svg
-    .replace('<style>', '<style>.dusk{fill:#0B1636;opacity:.5}')
-    .replace(veil, `${veil}<rect class="dusk" width="${W}" height="${H}"/>`)
-}
-
 // A grid of SAPP-yellow dots that swell toward the bottom-right corner: pure code,
 // no sprite. 24 by 17 cells of 32 units; every number is fixed to one decimal.
 export const dotsSvg = () => {
@@ -47,7 +37,6 @@ export const dotsSvg = () => {
   )
 }
 export const DOTS_ALT = 'Lưới chấm vàng SAPP, các chấm to dần về góc dưới bên phải'
-export const NIGHT_ALT = `${SCENE_ALT}, vào buổi tối`
 
 const sapp = makeColors({
   label: 'SAPP',
@@ -56,21 +45,11 @@ const sapp = makeColors({
   dark: { gray: { anchors: tokens.dark } },
 })
 
-const night = makeColors({
-  label: 'SAPP Night',
+// The IT themes follow the window: the SAPP cream in a light window, a deep night blue in a dark one.
+const sappIt = makeColors({
+  label: 'SAPP IT',
   roles: tokens.roles,
-  light: {
-    gray: {
-      anchors: {
-        'surface-0': '#EEF1F8',
-        'surface-1': '#FFFFFF',
-        'surface-2': '#FFFFFF',
-        'text-primary': '#111A33',
-        'text-secondary': '#46506B',
-        'text-muted': '#667090',
-      },
-    },
-  },
+  light: { gray: { anchors: tokens.light } },
   dark: {
     gray: {
       anchors: {
@@ -90,8 +69,8 @@ const GLASS = { blur: 14, opacity: 0.72 }
 
 // `shader` names one of the shader files register.js plays over the Svg (each file
 // is written out there as a literal path, which is how the engine reads it); absent,
-// the Svg shows alone. `team` is who the theme is for, `colorScheme` the window kind
-// a theme is made for (absent = it follows the window).
+// the Svg shows alone. `team` is who the theme is for. No theme forces a window kind: every Svg and every
+// palette has a light and a dark look, and the engine picks by the window.
 export const THEMES = [
   {
     id: 'acca-classroom',
@@ -103,20 +82,6 @@ export const THEMES = [
     scene: 'sapp-acca-classroom',
     svg: SCENE_SVG,
     alt: SCENE_ALT,
-    shader: 'classroom',
-    glass: GLASS,
-  },
-  {
-    id: 'acca-night',
-    team: 'ACCA',
-    title: 'Lớp học ACCA ban đêm',
-    blurb: 'Lớp học pixel art về đêm, màu giao diện xanh đêm',
-    colors: night.theme,
-    problems: night.problems,
-    colorScheme: 'dark',
-    scene: 'sapp-acca-night',
-    svg: nightOf(SCENE_SVG),
-    alt: NIGHT_ALT,
     shader: 'classroom',
     glass: GLASS,
   },
@@ -137,10 +102,9 @@ export const THEMES = [
     id: 'marketing-board',
     team: 'Marketing',
     title: 'Bảng ý tưởng',
-    blurb: 'Lưới giấy ghi nhớ vàng và trắng như kế hoạch nội dung, làm cho nền sáng',
+    blurb: 'Lưới giấy ghi nhớ vàng và trắng như kế hoạch nội dung; cửa sổ tối thì bảng thành ván bần tối',
     colors: sapp.theme,
     problems: sapp.problems,
-    colorScheme: 'light',
     scene: 'sapp-marketing-board',
     svg: boardSvg(),
     alt: BOARD_ALT,
@@ -151,10 +115,9 @@ export const THEMES = [
     id: 'it-room',
     team: 'IT',
     title: 'Phòng IT',
-    blurb: 'Phòng IT pixel art về đêm: tủ rack, màn hình giám sát, đèn LED nhấp nháy chậm',
-    colors: night.theme,
-    problems: night.problems,
-    colorScheme: 'dark',
+    blurb: 'Phòng IT pixel art: tủ rack, màn hình giám sát, đèn LED nhấp nháy chậm; sáng ban ngày, tối về đêm',
+    colors: sappIt.theme,
+    problems: sappIt.problems,
     scene: 'sapp-it-room',
     svg: IT_SVG,
     alt: IT_ALT,
@@ -165,10 +128,9 @@ export const THEMES = [
     id: 'it-blueprint',
     team: 'IT',
     title: 'Bản vẽ mạng',
-    blurb: 'Sơ đồ mạng nét mảnh trên nền xanh đậm, gói tin chạy chậm trên đường link',
-    colors: night.theme,
-    problems: night.problems,
-    colorScheme: 'dark',
+    blurb: 'Sơ đồ mạng nét mảnh, giấy xanh nhạt khi sáng, xanh đậm khi tối; gói tin chạy chậm trên đường link',
+    colors: sappIt.theme,
+    problems: sappIt.problems,
     scene: 'sapp-it-blueprint',
     svg: blueprintSvg(),
     alt: BLUEPRINT_ALT,

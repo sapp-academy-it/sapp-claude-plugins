@@ -56,7 +56,7 @@ const view = picture(p => {
   // 248 of the 768-unit scene, which the Svg fits to the window with `slice` (the larger of the two
   // scales, centred). Colour alone cannot say "inside": any colour near the panel's own would pass.
   const sceneX = (p.uv.x * size.x - size.x / 2) / max(size.x / 768, size.y / 544) + 384
-  const across = smoothstep(39, 40, sceneX) * (1 - smoothstep(248, 249, sceneX))
+  const across = smoothstep(40, 41, sceneX) * (1 - smoothstep(247, 248, sceneX))
   const live = max(a, b) * inside * across
   const graph = max(live, resting)
 

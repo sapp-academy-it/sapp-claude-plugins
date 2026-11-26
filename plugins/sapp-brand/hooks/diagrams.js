@@ -6,7 +6,9 @@
 const W = 768
 const H = 544
 
-// The shader marks (marketing-board.shader.ts, it-blueprint.shader.ts) read these.
+// The shader marks (marketing-board.shader.ts, it-blueprint.shader.ts) read these. They are the same
+// in a light and a dark window (the notes, and the links drawn with a fixed stroke), so one shader serves
+// both; only the paper, the grid, the cork and the node colours change with the window.
 export const NOTE_YELLOW = '#FFE07A'
 export const NOTE_WHITE = '#FFFFFF'
 export const LINK = '#3E7BD9'
@@ -49,7 +51,10 @@ export const boardSvg = () => {
     }
   }
   return (
-    open(`.bg{fill:#E9DFC8}.head{fill:#D4C7A8}.shade{fill:#CFC2A2}.yellow{fill:${NOTE_YELLOW}}.white{fill:${NOTE_WHITE}}.ink{fill:#BDB08F}.pin{fill:#D64545}`) +
+    open(
+      `.bg{fill:#E9DFC8}.head{fill:#D4C7A8}.shade{fill:#CFC2A2}.yellow{fill:${NOTE_YELLOW}}.white{fill:${NOTE_WHITE}}.ink{fill:#BDB08F}.pin{fill:#D64545}` +
+        '@media (prefers-color-scheme: dark){.bg{fill:#2B2118}.head{fill:#46372A}.shade{fill:#150F0A}}',
+    ) +
     `<rect class="bg" width="${W}" height="${H}"/>${parts.join('')}</svg>`
   )
 }
@@ -112,9 +117,12 @@ export const blueprintSvg = () => {
   for (let x = 0; x <= W; x += 48) grid.push(`<rect class="grid" x="${x}" y="0" width="1" height="${H}"/>`)
   for (let y = 0; y <= H; y += 48) grid.push(`<rect class="grid" x="0" y="${y}" width="${W}" height="1"/>`)
   return (
-    open(`.bg{fill:#0B1636}.grid{fill:#12224D}.link{fill:none;stroke:${LINK};stroke-width:3}.node{fill:#0F1D45;stroke:#8FB0F0;stroke-width:3}.mark{fill:#9DB8F5}`) +
+    open(
+      `.bg{fill:#EEF3FB}.grid{fill:#D8E3F5}.node{fill:#FFFFFF;stroke:#1F4FA8;stroke-width:3}.mark{fill:#7C9AD0}` +
+        '@media (prefers-color-scheme: dark){.bg{fill:#0B1636}.grid{fill:#12224D}.node{fill:#0F1D45;stroke:#8FB0F0}.mark{fill:#9DB8F5}}',
+    ) +
     `<rect class="bg" width="${W}" height="${H}"/>${grid.join('')}` +
-    `<path class="link" d="${links.join('')}"/>` +
+    `<path fill="none" stroke="${LINK}" stroke-width="3" d="${links.join('')}"/>` +
     boxes.join('') +
     '</svg>'
   )

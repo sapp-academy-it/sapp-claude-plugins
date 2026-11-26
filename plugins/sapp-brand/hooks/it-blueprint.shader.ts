@@ -1,7 +1,7 @@
 // Slow motion over the network blueprint, on the GPU. The engine reads this file
 // and never runs it as JavaScript. The links are the only lines painted #3E7BD9, found
 // in the Svg picture itself; packets run along them, one every ~200 points, creeping
-// at about 24 points a second. A packet is a short bright dash that fades in and out.
+// at about 24 points a second. A packet is a short orange dash that fades in and out: orange reads on the pale paper of a light window and on the deep blue of a dark one.
 // Under Reduce Motion the engine shows the plain Svg.
 import {
   abs,
@@ -26,7 +26,7 @@ const view = picture(p => {
   const along = fract((p.point.x + p.point.y) / 200 - time * 0.12 * calm)
   const packet = (1 - smoothstep(0, 0.045, abs(along - 0.5))) * link
   const alpha = clamp(packet * 0.95, 0, 0.95)
-  return vec4(vec3(0.7, 0.9, 1) * alpha, alpha)
+  return vec4(vec3(1, 0.55, 0.12) * alpha, alpha)
 })
 
 export default shader({ fps: 30, passes: [view] })

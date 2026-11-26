@@ -9,8 +9,7 @@ const apply = async ($, theme) => {
   // The whole theme in one set: what a set leaves out is gone, so a theme with no
   // scene sets no backdrop and the previous theme's scene is dropped.
   const attributes = { colors: theme.colors }
-  // A theme made for one window kind (the night and IT themes dark, the idea board light) says so; the others follow the window.
-  if (theme.colorScheme) attributes.overrideColorScheme = theme.colorScheme
+  // No override of the colour scheme: every theme has a light and a dark look and follows the window.
   if (theme.scene) attributes.backdrop = { scene: theme.scene, glass: theme.glass }
   await $.theme.set(attributes)
 }
