@@ -163,7 +163,7 @@ export const defaultTheme = () => themeOf(DEFAULT_THEME_ID)
 // A stored id that is unknown, or no longer in THEMES, gives the default.
 export const themeOrDefault = id => themeOf(id) ?? defaultTheme()
 
-const plain = text =>
+export const plain = text =>
   text
     .toLowerCase()
     .normalize('NFD')

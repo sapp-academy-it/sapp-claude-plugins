@@ -29,5 +29,5 @@ jobs:
           hooks=$(grep -F "./register.js hooks:" validate.txt | sed 's/.*hooks: //')
           test "$(grep -cF "./register.js calls:" validate.txt)" = 1
           test "$(grep -cF "./register.js hooks:" validate.txt)" = 1
-          test "$calls" = '$.command.register, $.store.get (via pointToHelp, stored), $.store.set (via pointToHelp, switchTo), $.theme.set (via apply), $.ui.close, $.ui.open (via showHelp), $.ui.resolve, $.ui.status, $.ui.toast (via pointToHelp)'
+          test "$calls" = '$.command.register, $.store.get (via isOff, pointToHelp, stored), $.store.set (via pointToHelp, switchTo, turnOff), $.theme.clear (via turnOff), $.theme.set (via apply), $.ui.close, $.ui.open (via showHelp), $.ui.resolve, $.ui.status, $.ui.toast (via pointToHelp)'
           test "$hooks" = 'session.start, command.run{command=sapp-theme}, command.run{command=sapp-help}, ui.render{component=Pane} (default matcher key: plugin), ui.render{component=Backdrop}, ui.render{component=Spinner}'

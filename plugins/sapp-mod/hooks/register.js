@@ -1,10 +1,15 @@
 import { HELP_MARKDOWN, HELP_TOAST, PANE_ID, TOAST_KEY } from './help.js'
-import { THEMES, pickTheme, themeOrDefault } from './themes.js'
+import { THEMES, pickTheme, plain, themeOrDefault } from './themes.js'
 
 export const CREDIT = 'Tạo bởi SAPP IT Department, © 2026'
 export const SPINNER_TEXT = 'SAPP đang xử lý'
 // The one key this mod keeps in its own store: the id of the chosen theme.
 export const STORE_KEY = 'theme'
+// Whether the person turned the SAPP theme off (`/sapp-theme off`). The chosen id stays in STORE_KEY,
+// so `/sapp-theme on` brings the last choice back.
+export const OFF_KEY = 'theme-off'
+const OFF_WORDS = ['off', 'tat']
+const ON_WORDS = ['on', 'bat']
 
 const apply = async ($, theme) => {
   // The whole theme in one set: what a set leaves out is gone, so a theme with no
@@ -23,19 +28,31 @@ const stored = async $ => {
   }
 }
 
-const listText = current =>
+const isOff = async $ => {
+  try {
+    return (await $.store.get(OFF_KEY)) === true
+  } catch {
+    return false
+  }
+}
+
+// While the theme is off no row is marked [đang dùng]; `current` is then the last chosen theme.
+const listText = (current, off = false) =>
   [
-    `Giao diện SAPP, đang dùng: ${current.title}.`,
+    off
+      ? `Giao diện SAPP đang TẮT (Claude Code dùng giao diện mặc định). Giao diện đã chọn gần nhất: ${current.title}.`
+      : `Giao diện SAPP, đang dùng: ${current.title}.`,
     ...THEMES.map(
-      (t, i) => `${i + 1}. ${t.title} (${t.id}): ${t.blurb}${t === current ? ' [đang dùng]' : ''}`,
+      (t, i) => `${i + 1}. ${t.title} (${t.id}): ${t.blurb}${!off && t === current ? ' [đang dùng]' : ''}`,
     ),
-    `Đổi bằng /sapp-theme <số, mã hoặc tên>. Nền và màu chỉ hiện ở tab Code của Desktop và trên mobile.`,
+    `Đổi bằng /sapp-theme <số, mã hoặc tên>. Tắt giao diện: /sapp-theme off. Bật lại giao diện đã chọn: /sapp-theme on. Nền và màu chỉ hiện ở tab Code của Desktop và trên mobile.`,
   ].join('\n')
 
 const switchTo = async ($, theme, state) => {
   try {
     await apply($, theme)
     state.applied = theme
+    state.off = false
   } catch {
     return `Không áp dụng được "${theme.title}" trên bản Claude Code này.`
   }
@@ -48,22 +65,48 @@ const switchTo = async ($, theme, state) => {
   }
   try {
     await $.store.set(STORE_KEY, theme.id)
+    await $.store.set(OFF_KEY, false)
   } catch {
     return `Đã đổi sang "${theme.title}", nhưng không lưu được lựa chọn cho lần sau.`
   }
   return `Đã đổi sang "${theme.title}" và lưu lại cho các phiên sau.`
 }
 
+// Turns the theme off: the engine's own look comes back. The credit line and the spinner word are not
+// part of the theme, so they stay. The choice is stored, so a later session does not apply a theme.
+const turnOff = async ($, state) => {
+  try {
+    await $.theme.clear()
+  } catch {
+    return 'Không tắt được giao diện trên bản Claude Code này.'
+  }
+  state.off = true
+  state.applied = undefined
+  const kept = 'Dòng credit và chữ "SAPP đang xử lý…" vẫn giữ vì không thuộc giao diện. Bật lại bằng /sapp-theme on hoặc /sapp-theme <số, mã hoặc tên>.'
+  try {
+    await $.store.set(OFF_KEY, true)
+  } catch {
+    return `Đã tắt giao diện SAPP, nhưng không lưu được lựa chọn cho lần sau. ${kept}`
+  }
+  return `Đã tắt giao diện SAPP: Claude Code về giao diện mặc định, và giữ vậy ở các phiên sau. ${kept}`
+}
+
 // The theme this session applied lives in `state`; before any, the stored one stands.
 const answer = async ($, e, state) => {
   const asked = (e.args ?? '').trim()
-  const now = state.applied ?? themeOrDefault(await stored($))
-  if (asked === '') return { text: listText(now), isTextDisplayOnly: true }
+  const off = state.off ?? (await isOff($))
+  const last = state.applied ?? themeOrDefault(await stored($))
+  if (asked === '') return { text: listText(last, off), isTextDisplayOnly: true }
+
+  const word = plain(asked)
+  if (OFF_WORDS.includes(word)) return { text: await turnOff($, state), isTextDisplayOnly: true }
+  // `on` brings back the last chosen theme, or the default when none was chosen.
+  if (ON_WORDS.includes(word)) return { text: await switchTo($, last, state), isTextDisplayOnly: true }
 
   const theme = pickTheme(asked)
   if (!theme) {
     return {
-      text: `Không có giao diện "${shown(asked)}".\n${listText(now)}`,
+      text: `Không có giao diện "${shown(asked)}".\n${listText(last, off)}`,
       isTextDisplayOnly: true,
     }
   }
@@ -117,7 +160,7 @@ const creditAgain = ($, e) => {
 }
 
 export const register = on => {
-  const state = { applied: undefined }
+  const state = { applied: undefined, off: undefined }
 
   on('session.start', async ($, e, next) => {
     // The credit line first: an older Claude Code without $.theme.set still shows it.
@@ -127,9 +170,13 @@ export const register = on => {
       // No status line on this build.
     }
     try {
-      const theme = themeOrDefault(await stored($))
-      await apply($, theme)
-      state.applied = theme
+      state.off = await isOff($)
+      // While the theme is off, no theme is set (and none cleared: a clear at start would wipe another mod's).
+      if (!state.off) {
+        const theme = themeOrDefault(await stored($))
+        await apply($, theme)
+        state.applied = theme
+      }
     } catch {
       // No theme on this build; the rest of the mod still works.
     }
@@ -137,8 +184,8 @@ export const register = on => {
     try {
       await $.command.register({
         name: 'sapp-theme',
-        description: 'Đổi giao diện SAPP. Không có tham số thì liệt kê các giao diện.',
-        argumentHint: '[số | mã | tên]',
+        description: 'Đổi giao diện SAPP, hoặc tắt bằng off và bật lại bằng on. Không có tham số thì liệt kê các giao diện.',
+        argumentHint: '[số | mã | tên | off | on]',
       })
     } catch {
       // No command on this build.
@@ -178,6 +225,8 @@ export const register = on => {
 
   on('ui.render', { component: 'Backdrop' }, ($, e, next) => {
     creditAgain($, e)
+    // Off: our scene is gone with the theme; anything that still asks is left to the next hook.
+    if (state.off === true) return next(e)
     if (e.surface !== 'desktop' && e.surface !== 'mobile') {
       return next(e)
     }
