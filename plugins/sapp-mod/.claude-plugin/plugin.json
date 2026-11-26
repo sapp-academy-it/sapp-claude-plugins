@@ -1,6 +1,6 @@
 {
   "name": "sapp-mod",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "SAPP brand mod: a set of four SAPP themes (ACCA, Marketing and IT scenes) switchable with /sapp-theme, a credit line and the SAPP spinner text",
   "author": {
     "name": "SAPP IT Department"
