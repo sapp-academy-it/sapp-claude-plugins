@@ -385,7 +385,7 @@ test('the dots scene is deterministic, uses circles only and grows toward the bo
 
 test('the Backdrop hook draws each scene: a Shader over the Svg for the classroom, an Svg alone for the dots', async () => {
   const engine = registered()
-  const draw = scene => render(engine, 'Backdrop', { surface: 'desktop', props: { scene, plugin: 'sapp-brand' } })
+  const draw = scene => render(engine, 'Backdrop', { surface: 'desktop', props: { scene, plugin: 'sapp-mod' } })
 
   const day = await draw('sapp-acca-classroom')
   assert.equal(day.type, 'Shader')
@@ -397,15 +397,27 @@ test('the Backdrop hook draws each scene: a Shader over the Svg for the classroo
   assert.equal(dots.props.source, THEMES.find(t => t.id === 'sapp-dots').svg)
 })
 
-test('the Backdrop hook leaves the terminal, another mod\'s scene and a scene we do not own alone', async () => {
+test('the Backdrop hook leaves the terminal, another mod\'s scene and a scene we do not own, or the old plugin name alone', async () => {
   const engine = registered()
-  const terminal = await render(engine, 'Backdrop', { surface: 'terminal', props: { scene: 'sapp-dots', plugin: 'sapp-brand' } })
-  const otherScene = await render(engine, 'Backdrop', { surface: 'desktop', props: { scene: 'someone-elses-scene', plugin: 'sapp-brand' } })
+  const terminal = await render(engine, 'Backdrop', { surface: 'terminal', props: { scene: 'sapp-dots', plugin: 'sapp-mod' } })
+  const otherScene = await render(engine, 'Backdrop', { surface: 'desktop', props: { scene: 'someone-elses-scene', plugin: 'sapp-mod' } })
   const otherPlugin = await render(engine, 'Backdrop', { surface: 'desktop', props: { scene: 'sapp-dots', plugin: 'another-mod' } })
+  // The plugin was renamed from sapp-brand: the guard must name sapp-mod only.
+  const oldName = await render(engine, 'Backdrop', { surface: 'desktop', props: { scene: 'sapp-dots', plugin: 'sapp-brand' } })
   // A scene removed from the registry, as an older stored theme may name.
-  const removed = await render(engine, 'Backdrop', { surface: 'desktop', props: { scene: 'sapp-undefined', plugin: 'sapp-brand' } })
+  const removed = await render(engine, 'Backdrop', { surface: 'desktop', props: { scene: 'sapp-undefined', plugin: 'sapp-mod' } })
 
-  for (const out of [terminal, otherScene, otherPlugin, removed]) assert.ok(out.passed)
+  for (const out of [terminal, otherScene, otherPlugin, oldName, removed]) assert.ok(out.passed)
+})
+
+test('the manifest name, the marketplace entry and the Backdrop guard all say sapp-mod', async () => {
+  const manifest = JSON.parse(readFileSync(new URL('../.claude-plugin/plugin.json', import.meta.url), 'utf8'))
+  const market = JSON.parse(readFileSync(new URL('../../../.claude-plugin/marketplace.json', import.meta.url), 'utf8'))
+  assert.equal(manifest.name, 'sapp-mod')
+  assert.deepEqual(market.plugins.map(p => p.name), ['sapp-mod'])
+  // The engine passes the manifest name as props.plugin, so the guard must accept exactly it.
+  const out = await render(registered(), 'Backdrop', { surface: 'desktop', props: { scene: 'sapp-dots', plugin: manifest.name } })
+  assert.equal(out.type, 'Svg')
 })
 
 // ---- what the mod hooks and calls -------------------------------------------------------
@@ -445,7 +457,7 @@ test('running every hook makes no call on $ beyond the pinned set', async () => 
   await startSession(engine)
   await runCommand(engine, 'sapp-theme', '')
   await runCommand(engine, 'sapp-theme', 'it-room')
-  await render(engine, 'Backdrop', { surface: 'desktop', props: { scene: 'sapp-acca-classroom', plugin: 'sapp-brand' } })
+  await render(engine, 'Backdrop', { surface: 'desktop', props: { scene: 'sapp-acca-classroom', plugin: 'sapp-mod' } })
   await render(engine, 'Spinner', { surface: 'desktop', props: { word: 'x', message: null, suffix: '…', mode: 'thinking' } })
   const used = [...new Set(engine.calls.map(c => c.path))].sort()
 
