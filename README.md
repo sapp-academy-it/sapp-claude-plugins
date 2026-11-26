@@ -21,7 +21,7 @@ Tạo bởi SAPP IT Department, © 2026.
 
 Nơi hiện:
 
-- **Tab Code của Claude Desktop:** giao diện đầy đủ (nền và màu), cộng dòng credit "Tạo bởi SAPP IT Department, © 2026" và chữ "SAPP đang xử lý…" khi Claude làm việc.
+- **Tab Code của Claude Desktop và trên mobile:** giao diện đầy đủ (nền và màu), cộng dòng credit "Tạo bởi SAPP IT Department, © 2026" và chữ "SAPP đang xử lý…" khi Claude làm việc.
 - **Terminal:** chỉ có dòng credit và chữ "SAPP đang xử lý…"; nền và màu không hiện.
 
 Cần Claude Code từ **2.1.330** trở lên.
@@ -49,7 +49,7 @@ Cập nhật: `claude plugin update sapp-mod@sapp`, rồi khởi động lại C
 
 ## Cài cho cả tổ chức
 
-Quản trị viên (gói Team hoặc Enterprise, vai trò Owner) dán đoạn sau vào claude.ai: Organization settings > Claude Code > Managed settings, làm một lần cho tổ chức. Cũng có thể đặt vào tệp managed settings hoặc chính sách MDM.
+Quản trị viên (gói Team hoặc Enterprise, vai trò Owner) dán đoạn sau vào claude.ai: Organization settings > Claude Code > Managed settings, làm một lần cho tổ chức. Cũng có thể đặt vào tệp managed settings hoặc chính sách MDM (nếu managed settings từ máy chủ đã gửi bất kỳ khóa nào, các khóa plugin trong tệp hoặc MDM bị bỏ qua).
 
 ```json
 {
@@ -69,8 +69,8 @@ Quản trị viên (gói Team hoặc Enterprise, vai trò Owner) dán đoạn sa
 ```
 
 - `ref` ghim marketplace vào một commit đã duyệt. Muốn phát hành bản mới, đổi `ref` sang SHA merge mới. Mỗi bản phát hành đều tăng `version` trong `plugin.json`, vì bản cài được lưu theo số phiên bản.
-- `appendPlugins` làm `sapp-mod` thành mod của tổ chức.
-- `requiredMinimumVersion` là tùy chọn: máy dùng Claude Code cũ hơn bản này sẽ không khởi động được.
+- `appendPlugins` làm `sapp-mod` thành mod của tổ chức, và phải đi cùng hai khóa `extraKnownMarketplaces` và `enabledPlugins` ở trên.
+- `requiredMinimumVersion` là tùy chọn và ảnh hưởng cả tổ chức: mọi máy nhận cài đặt này mà chạy Claude Code cũ hơn 2.1.330 sẽ không mở được Claude Code (không riêng `sapp-mod`). Cập nhật các máy trước rồi mới bật.
 - Kiểm trên máy thành viên: `/plugin` hiện `sapp-mod` kèm số phiên bản, và `/sapp-theme` chạy được.
 - Tắt: đổi thành `"sapp-mod@sapp": false`.
 
@@ -80,7 +80,7 @@ Mod chỉ chạy trong Claude Code, không chạy trong chat claude.ai. Chat ch�
 
 1. Nén thư mục skill, tên thư mục trùng tên skill: `cd plugins/sapp-mod/skills && zip -r sapp-ai-guide.zip sapp-ai-guide`.
 2. Vào Organization settings > Plugins & skills > Policy, bảo đảm Skills đang bật.
-3. Ở tab Inventory chọn Add > Upload a skill, chọn tệp zip, rồi đặt Default access cho thành viên (Available to install, Installed by default hoặc Required).
+3. Ở tab Inventory chọn Add > Upload a skill, chọn tệp zip, rồi đặt Default access cho thành viên (skill vừa tải lên có thể hiện trước ở tab Organization skills) (Available to install, Installed by default hoặc Required).
 4. Mỗi lần sửa `SKILL.md`, tạo zip mới và chọn Upload new version ở trang của skill.
 
 Không phải Owner thì tự dùng: Customize > Skills > Create skill > Upload a skill, với cùng tệp zip. Đừng tải cả plugin `sapp-mod` lên bằng Upload a plugin.
