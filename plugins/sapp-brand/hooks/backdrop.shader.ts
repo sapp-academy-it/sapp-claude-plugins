@@ -1,9 +1,10 @@
 // Gentle motion over the classroom scene, on the GPU. The engine reads this
 // file and never runs it as JavaScript.
 //
-// 1. Lamp glow: the three lamp bulbs are the only cells of the scene painted a
-//    pure lemon yellow, so a quarter-resolution buffer finds them in the Svg
-//    picture itself and the glow follows them at any crop of the window.
+// 1. Screen glow: the lit text cells of the PC screens are the only cells of the
+//    scene painted a pure mint green (green far above both red and blue), so a
+//    quarter-resolution buffer finds them in the Svg picture itself and the
+//    glow follows the screens at any crop of the window.
 // 2. Chalk dust: 6 specks drifting slowly and fading in and out over several
 //    seconds each (well under three changes a second, so nothing flashes).
 // 3. A soft highlight that follows the pointer.
@@ -29,21 +30,21 @@ import {
   vec4,
 } from 'claude-code/shader'
 
-// 1 where the picture is a lamp bulb: a very green-yellow cell with almost no blue.
-const lamps = buffer({ scale: 0.25, filter: 'mipmap' }, p => {
+// 1 where the picture is a lit screen cell: green well above red and above blue.
+const screens = buffer({ scale: 0.25, filter: 'mipmap' }, p => {
   const c = scene.sample(p.uv)
-  const m = smoothstep(0.66, 0.76, c.g - c.b)
+  const m = smoothstep(0.5, 0.7, c.g - c.r) * smoothstep(0.36, 0.42, c.g - c.b)
   return vec4(m, m, m, 1)
 })
 
 const view = picture(p => {
   const calm = 1 - still
 
-  // Lamp glow, breathing slowly (one cycle every 12 seconds or so).
+  // Screen glow, breathing slowly (one cycle every 12 seconds or so).
   const breath = 0.88 + 0.12 * sin(time * 0.5) * calm
-  const near = lamps.sample(p.uv, 3).r
-  const wide = lamps.sample(p.uv, 5).r
-  const glow = clamp(near * 1.6 + wide * 3.2, 0, 1) * breath
+  const near = screens.sample(p.uv, 3).r
+  const wide = screens.sample(p.uv, 5).r
+  const glow = clamp(near * 4 + wide * 6, 0, 1) * breath
 
   // Chalk dust.
   let dust = 0
@@ -64,11 +65,11 @@ const view = picture(p => {
     light += smoothstep(170, 0, length(p.point - q.at)) * (1 - clamp(q.gone, 0, 1))
   }
 
-  const warm = vec3(1, 0.8, 0.4)
+  const warm = vec3(0.5, 1, 0.75)
   const chalk = vec3(1, 0.9, 0.7)
   const alpha = clamp(glow * 0.3 + clamp(dust, 0, 1) * 0.22 + light * 0.07, 0, 0.45)
   const rgb = warm * (glow * 0.3 + light * 0.07) + chalk * (clamp(dust, 0, 1) * 0.22)
   return vec4(rgb, alpha)
 })
 
-export default shader({ fps: 30, passes: [lamps, view] })
+export default shader({ fps: 30, passes: [screens, view] })
