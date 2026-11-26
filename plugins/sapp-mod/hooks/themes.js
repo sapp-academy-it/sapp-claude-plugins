@@ -3,6 +3,7 @@
 // still frame shown under reduced motion) with an optional shader over it.
 // The shape follows Anthropic's theme-examples (Apache-2.0): one table, one row per
 // theme, the id as the key everything else looks up; see README for the attribution.
+import { frameCode, frameScene } from './layout.js'
 import { makeColors } from './make-colors.js'
 import { IT_ALT, IT_SVG } from './scene-it.js'
 import { MARKETING_ALT, MARKETING_SVG } from './scene-marketing.js'
@@ -15,9 +16,13 @@ const W = 768
 const H = 544
 
 // A grid of SAPP-yellow dots that swell toward the bottom-right corner: pure code,
-// no sprite. 24 by 17 cells of 32 units; every number is fixed to one decimal.
-export const dotsSvg = () => {
-  const dots = []
+// no sprite. 24 by 17 cells of 32 units; every number is fixed to one decimal. Laid out
+// like the rooms: the 8 columns at each side go to the window's edges (see layout.js),
+// and the middle, under the chat, stays plain.
+const DOT_SIDE_COLUMNS = 8
+const dotsArt = () => {
+  const left = []
+  const right = []
   const far = Math.hypot(W, H)
   for (let row = 0; row < 17; row++) {
     for (let col = 0; col < 24; col++) {
@@ -25,14 +30,35 @@ export const dotsSvg = () => {
       const y = row * 32 + 16
       const near = 1 - Math.hypot(W - x, H - y) / far
       const r = Math.max(0, 14 * near * near * 1.6 - 1)
-      if (r >= 1) dots.push(`<circle cx="${x}" cy="${y}" r="${r.toFixed(1)}"/>`)
+      if (r < 1) continue
+      const dot = `<circle cx="${x}" cy="${y}" r="${r.toFixed(1)}"/>`
+      if (col < DOT_SIDE_COLUMNS) left.push(dot)
+      else if (col >= 24 - DOT_SIDE_COLUMNS) right.push(dot)
     }
   }
+  return { left, right }
+}
+export const dotsSvg = option => {
+  const { left, right } = dotsArt()
+  return frameCode(
+    {
+    style:
+      '.bg{fill:#FAF8F3}.dot{fill:#FFB700;opacity:.55}' +
+      '@media (prefers-color-scheme: dark){.bg{fill:#1A1916}.dot{opacity:.32}}',
+    left: `<g class="dot">${left.join('')}</g>`,
+    right: `<g class="dot">${right.join('')}</g>`,
+      pieceCells: (DOT_SIDE_COLUMNS * 32) / 4,
+    },
+    option,
+  )
+}
+// The dots as one flat picture of the whole 768 by 544 grid, for preview.png only.
+export const dotsFlat = () => {
+  const { left, right } = dotsArt()
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice">` +
-    '<style>.bg{fill:#FAF8F3}.dot{fill:#FFB700;opacity:.55}' +
-    '@media (prefers-color-scheme: dark){.bg{fill:#1A1916}.dot{opacity:.32}}</style>' +
-    `<rect class="bg" width="${W}" height="${H}"/><g class="dot">${dots.join('')}</g></svg>`
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 544">' +
+    '<style>.bg{fill:#FAF8F3}.dot{fill:#FFB700;opacity:.55}@media (prefers-color-scheme: dark){.bg{fill:#1A1916}.dot{opacity:.32}}</style>' +
+    '<rect class="bg" width="768" height="544"/><g class="dot">' + left.join('') + right.join('') + '</g></svg>'
   )
 }
 export const DOTS_ALT = 'Lưới chấm vàng SAPP, các chấm to dần về góc dưới bên phải'
@@ -64,6 +90,12 @@ const sappIt = makeColors({
   },
 })
 
+// The two zones of every room, in sprite cells (the same numbers as ZONES in scripts/build-scene.mjs, a test
+// holds them together): the left zone is cells 0 to 88, the right zone cells 104 to 192, and layout.js draws
+// the empty room between them itself.
+const ZONES = { left: 88, right: 104 }
+export const CUTS = { classroom: ZONES, marketing: ZONES, it: ZONES }
+
 const GLASS = { blur: 14, opacity: 0.72 }
 
 // `shader` names one of the shader files register.js plays over the Svg (each file
@@ -79,7 +111,8 @@ export const THEMES = [
     colors: sapp.theme,
     problems: sapp.problems,
     scene: 'sapp-acca-classroom',
-    svg: SCENE_SVG,
+    art: SCENE_SVG,
+    svg: frameScene(SCENE_SVG, CUTS.classroom),
     alt: SCENE_ALT,
     shader: 'classroom',
     glass: GLASS,
@@ -92,7 +125,8 @@ export const THEMES = [
     colors: sapp.theme,
     problems: sapp.problems,
     scene: 'sapp-marketing-room',
-    svg: MARKETING_SVG,
+    art: MARKETING_SVG,
+    svg: frameScene(MARKETING_SVG, CUTS.marketing),
     alt: MARKETING_ALT,
     shader: 'marketing',
     glass: GLASS,
@@ -105,7 +139,8 @@ export const THEMES = [
     colors: sappIt.theme,
     problems: sappIt.problems,
     scene: 'sapp-it-room',
-    svg: IT_SVG,
+    art: IT_SVG,
+    svg: frameScene(IT_SVG, CUTS.it),
     alt: IT_ALT,
     shader: 'it-room',
     glass: GLASS,
@@ -117,6 +152,7 @@ export const THEMES = [
     colors: sapp.theme,
     problems: sapp.problems,
     scene: 'sapp-dots',
+    art: dotsFlat(),
     svg: dotsSvg(),
     alt: DOTS_ALT,
     glass: { blur: 10, opacity: 0.72 },

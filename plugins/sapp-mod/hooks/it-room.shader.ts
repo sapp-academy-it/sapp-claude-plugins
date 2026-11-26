@@ -30,7 +30,8 @@ import {
 const view = picture(p => {
   const calm = 1 - still
   const c = scene.sample(p.uv)
-  const cell = 4 * max(size.x / 768, size.y / 544)
+  // One grid cell, in points: layout.js draws the room at 4 points a cell (option A, a fixed scale).
+  const cell = 4
 
   // LEDs: dim toward the rack's own colour, out of step with each other by height.
   const led = 1 - smoothstep(0.05, 0.14, length(c.rgb - vec3(0.239, 1, 0.478)))
@@ -53,10 +54,10 @@ const view = picture(p => {
   const resting = 1 - smoothstep(0.05, 0.14, length(c.rgb - line))
   const inside = max(resting, 1 - smoothstep(0.05, 0.14, length(c.rgb - back)))
   // ...and only between the panel's left and right edges, by position: the panel spans x 40 to
-  // 248 of the 768-unit scene, which the Svg fits to the window with `slice` (the larger of the two
-  // scales, centred). Colour alone cannot say "inside": any colour near the panel's own would pass.
-  const sceneX = (p.uv.x * size.x - size.x / 2) / max(size.x / 768, size.y / 544) + 384
-  const across = smoothstep(40, 41, sceneX) * (1 - smoothstep(247, 248, sceneX))
+  // 232 of the 768-unit scene, which layout.js anchors to the window's left edge at 1 unit a point.
+  // Colour alone cannot say "inside": any colour near the panel's own would pass.
+  const sceneX = p.uv.x * size.x
+  const across = smoothstep(40, 41, sceneX) * (1 - smoothstep(231, 232, sceneX))
   const live = max(a, b) * inside * across
   const graph = max(live, resting)
 

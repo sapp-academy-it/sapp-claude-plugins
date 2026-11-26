@@ -37,26 +37,28 @@ test('a scene name that does not exist is refused, not built empty', () => {
 
 const NEW = ['acca-classroom', 'marketing-room', 'it-room']
 
-test('every scene Svg: under 131072 characters, crispEdges, a viewBox, no width or height, no id that is not hyphenated', () => {
+test('every scene Svg: under 131072 characters, crispEdges, sized by its own box (100%), no viewBox to slice it up, no id that is not hyphenated', () => {
   for (const id of NEW) {
-    const { svg } = byId(id)
+    const { svg, art } = byId(id)
 
     assert.ok(svg.length < 131072, `${id} ${svg.length}`)
-    assert.ok(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 544" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges">'), id)
-    assert.equal(/<svg [^>]*\b(width|height)=/.test(svg), false, id)
+    assert.ok(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" shape-rendering="crispEdges">'), id)
+    assert.equal(svg.includes('preserveAspectRatio="xMidYMid slice"'), false, id)
+    // The flat picture kept for preview.png is still the 768 by 800 scene.
+    assert.ok(art.startsWith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 800" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges">'), id)
     for (const [, name] of svg.matchAll(/\bid="([^"]*)"/g)) assert.match(name, /^[a-z]+(-[a-z]+)*$/, `${id} id ${name}`)
   }
   // Control: the id check is live on a bad one.
   assert.equal(/^[a-z]+(-[a-z]+)*$/.test('bad_id'), false)
 })
 
-test('the pixel scenes are whole cells of 4 on a 192 by 136 grid', () => {
+test('the pixel scenes are whole cells of 4 on a 192 by 200 grid', () => {
   for (const svg of [SCENE_SVG, MARKETING_SVG, IT_SVG]) {
     const subpaths = [...svg.matchAll(/M(\d+) (\d+)h(\d+)v(\d+)h-(\d+)z/g)]
     assert.ok(subpaths.length > 1500)
     for (const [, x, y, w, h] of subpaths) {
       for (const v of [x, y, w, h]) assert.equal(Number(v) % 4, 0)
-      assert.ok(Number(x) + Number(w) <= 768 && Number(y) + Number(h) <= 544)
+      assert.ok(Number(x) + Number(w) <= 768 && Number(y) + Number(h) <= 800)
     }
   }
 })
@@ -204,7 +206,7 @@ test('the IT room paints the graph panel in the colour the shader hides the rest
   // The wave repeats every 16 cells (64 units): the line paints the same row of cells one period apart.
   const line = IT_SVG.match(new RegExp(`<path fill="${MARKERS.it.graph}" d="([^"]*)"`))[1]
   const rows = [...line.matchAll(/M(\d+) (\d+)h4v(\d+)h-4z/g)].map(m => `${Number(m[1]) % 64}/${m[2]}`)
-  assert.ok(rows.length > 40)
+  assert.ok(rows.length > 30)
   assert.ok(rows.filter(r => r.startsWith('0/')).length >= 1)
 })
 
@@ -251,18 +253,19 @@ const sceneXOf = source => {
   const expr = source.match(/const sceneX = (.*)$/m)[1].replace(/p\.uv\.x/g, 'uvx').replace(/size\.x/g, 'size[0]').replace(/size\.y/g, 'size[1]')
   return new Function('uvx', 'size', 'max', 'min', `return ${expr}`)
 }
-// The uv x at which a window of this size, fitting the 768 by 544 scene with `slice`, shows scene x.
-const uvXOf = (sceneX, [w, h]) => ((sceneX - 384) * Math.max(w / 768, h / 544) + w / 2) / w
+// The uv x at which a window of this width shows scene x: layout.js anchors the left piece to the left edge at 4 points a cell, 1 unit a point.
+const uvXOf = (sceneX, [w]) => sceneX / w
 const WINDOWS = [[768, 544], [1512, 945], [1000, 1400], [2400, 600]]
 
-test('the shader\'s scene-x line maps a uv back to the scene x at every window shape; a wrong fit turns it red', () => {
+test('the shader\'s scene-x line maps a uv back to the scene x at every window shape; the old centred slice fit turns it red', () => {
   const source = readFileSync(new URL('it-room.shader.ts', hooks), 'utf8')
   const check = fn => WINDOWS.every(win => [42, 100, 246, 600].every(x => Math.abs(fn(uvXOf(x, win), win, Math.max, Math.min) - x) < 1e-6))
 
   assert.equal(check(sceneXOf(source)), true)
-  // Controls: the fit written the other way round (min, "contain") and a shifted centre do not pass.
-  assert.equal(check(sceneXOf(source.replace('max(size.x / 768', 'min(size.x / 768').replace(/\bmax\(/g, 'min('))), false)
-  assert.equal(check(sceneXOf(source.replace('+ 384', '+ 380'))), false)
+  // Controls: the old centred slice fit and a shifted anchor do not pass.
+  const slice = '(p.uv.x * size.x - size.x / 2) / max(size.x / 768, size.y / 544) + 384'
+  assert.equal(check(sceneXOf(source.replace('p.uv.x * size.x', slice))), false)
+  assert.equal(check(sceneXOf(source.replace('p.uv.x * size.x', 'p.uv.x * size.x + 4'))), false)
 })
 
 for (const mode of ['light', 'dark']) {
@@ -374,9 +377,12 @@ function personContrast(svg, mode, person, chair = new Set()) {
   return (hi + 0.05) / (lo + 0.05)
 }
 
-test('each person in the IT room reads at 3 to 1 or more against their surround, in a light and a dark window', () => {
+test('each of the two people who stand in the IT room reads at 3 to 1 or more against their surround, in a light and a dark window', () => {
+  const standing = IT_PEOPLE.filter(person => chairCellsOf(person).size === 0)
+
+  assert.equal(standing.length, 2)
   for (const mode of ['light', 'dark']) {
-    for (const person of IT_PEOPLE) {
+    for (const person of standing) {
       const value = personContrast(IT_SVG, mode, person, chairCellsOf(person))
       assert.ok(value >= 3, `${mode} char ${person.n}: ${value.toFixed(2)}`)
     }
@@ -384,13 +390,75 @@ test('each person in the IT room reads at 3 to 1 or more against their surround,
   // Controls: the measure is live. The same room with no rim fails it for someone in some window, and a
   // person measured in a room with nobody in it reads as nothing special.
   const bare = buildItWithoutRim()
-  const failing = ['light', 'dark'].flatMap(mode => IT_PEOPLE.filter(person => personContrast(bare, mode, person, chairCellsOf(person)) < 3))
+  const failing = ['light', 'dark'].flatMap(mode => standing.filter(person => personContrast(bare, mode, person, chairCellsOf(person)) < 3))
   assert.ok(failing.length > 0)
   assert.equal(buildItWithoutPeople().includes(`<path fill="${RIM}"`), false)
   assert.equal(buildItWithoutPeople().includes(`<path fill="${RIM_LIGHT}"`), false)
   // The rim is dark ink, never a recolouring: a person's own cells keep the sprite's colours.
   const lit = litCells(IT_SVG)
   assert.equal(IT_PEOPLE.every(person => [...personCells(person)].every(k => lit.has(k))), true)
+})
+
+// The whole seated silhouette, the person with the chair back drawn over the legs, against the one-cell ring around it.
+function silhouetteContrast(svg, mode, person) {
+  const picture = pictureOf(svg, mode)
+  const own = new Set([...personCells(person), ...chairCellsOf(person)])
+  const ring = new Set()
+  for (const k of own) {
+    const [x, y] = k.split(',').map(Number)
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!own.has(`${x + dx},${y + dy}`)) ring.add(`${x + dx},${y + dy}`)
+  }
+  const mean = keys => [...keys].reduce((sum, k) => sum + luminance('#' + picture.get(k).map(v => Math.round(v).toString(16).padStart(2, '0')).join('')), 0) / keys.size
+  const [hi, lo] = [mean(own), mean(ring)].sort((x, y) => y - x)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+// RULE CHANGE. The seated engineers (person and chair together) used to be outlined so that the silhouette read at 3 to 1 against
+// its surround. The outline made the chair look lifted off the floor over the desk behind it, and the owner chose the room without
+// it. Seated people are decoration, not a marker or text, so the silhouette no longer has to reach 3 to 1: where a floor can fail it
+// only has to stay at or above what the room measures today (the measure rounded down); the two people who stand keep the outline and
+// the 3 to 1 of the test above, and the board ink keeps 4.5 to 1.
+// A floor must be able to fail. The control below builds the same room with nobody seated (the chair alone) and requires that every
+// seat in every window kind with a floor scores under its floor there. In a dark window three of the four seats score no better
+// than their empty chair (1.15, 1.38 and 1.08 against 1.40, 1.46 and 1.45), so no floor can tell them from nothing: their dark
+// figures are NOT contrast-tested at all, and the test says so by asserting that they do not beat the empty chair.
+const SEATED_FLOOR = {
+  light: { 1: 2.3, 4: 3.9, 0: 3.1, 5: 4.1 },
+  dark: { 1: 1.9 },
+}
+
+test('each seated engineer, person and chair together, stays at or above its floor where a floor can fail; the dark figures with none are not contrast-tested', () => {
+  const seated = IT_PEOPLE.filter(person => chairCellsOf(person).size > 0)
+  const empty = buildItWithoutPeople()
+
+  assert.equal(seated.length, 4)
+  for (const mode of ['light', 'dark']) {
+    for (const person of seated) {
+      const value = silhouetteContrast(IT_SVG, mode, person)
+      const bare = silhouetteContrast(empty, mode, person)
+      const floor = SEATED_FLOOR[mode][person.n]
+      if (floor === undefined) {
+        // No floor: the seat does not beat its empty chair, so any floor would pass for nobody sitting there.
+        assert.ok(value <= bare, `${mode} char ${person.n} beats its empty chair (${value.toFixed(2)} against ${bare.toFixed(2)}): give it a floor`)
+      } else {
+        assert.ok(value >= floor, `${mode} char ${person.n} at ${person.x},${person.y}: ${value.toFixed(2)} under ${floor}`)
+        // Control, every seat with a floor in its window kind: the empty chair does not reach the floor.
+        assert.ok(bare < floor, `${mode} char ${person.n}: the empty chair scores ${bare.toFixed(2)}, the floor ${floor} cannot fail`)
+      }
+    }
+  }
+  // No outline is painted round a seat: the rim colours appear only round the two who stand.
+  const standing = IT_PEOPLE.filter(person => chairCellsOf(person).size === 0)
+  const lit = litCells(IT_SVG)
+  const outlined = person =>
+    [...personCells(person)]
+      .flatMap(k => {
+        const [x, y] = k.split(',').map(Number)
+        return [`${x - 1},${y}`, `${x + 1},${y}`, `${x},${y - 1}`, `${x},${y + 1}`]
+      })
+      .some(k => [RIM, RIM_LIGHT].includes(lit.get(k)))
+  for (const person of seated) assert.equal(outlined(person), false, `outline round char ${person.n}`)
+  for (const person of standing) assert.equal(outlined(person), true, `no outline round standing char ${person.n}`)
 })
 
 // ---- seating, as the viz office seats a character ----------------------------------------------------------------
@@ -446,7 +514,7 @@ function seatsOf(name) {
   })
 }
 
-for (const [name, count] of [['classroom', 5], ['marketing', 2], ['it', 2]]) {
+for (const [name, count] of [['classroom', 5], ['marketing', 3], ['it', 4]]) {
   test(`${name}: every seated person sits as in the viz office: centred on the desk, the chair back over the legs, drawn after the person`, () => {
     const seats = seatsOf(name)
 
@@ -484,4 +552,108 @@ test('the coffee cup in the IT room stands on a desk top: its bottom row on a to
   // Controls: the old placement (the cup beyond the desk's right end, and one on the floor) is refused.
   assert.equal(onADesk({ x: 66 + 34, y: 88 + 7 }), false)
   assert.equal(onADesk({ x: COFFEE_AT.x, y: IT_DESKS[1].y + 60 }), false)
+})
+
+// ---- who stands where: the zones of every room ---------------------------------------------------------------
+
+const LEFT_END = 88 // cells: the left zone ends here, the right one starts at 104
+const zoneOf = x => (x + 8 < LEFT_END ? 'left' : x >= 104 ? 'right' : 'middle')
+
+test('IT: exactly one person tends the dashboard on the left, exactly one tends the racks on the right, two engineers sit in each zone', () => {
+  const standing = IT_PEOPLE.filter(person => chairCellsOf(person).size === 0)
+  const seated = IT_PEOPLE.filter(person => chairCellsOf(person).size > 0)
+
+  assert.deepEqual(standing.map(person => zoneOf(person.x)), ['left', 'right'])
+  assert.deepEqual(seated.map(person => zoneOf(person.x)), ['left', 'left', 'right', 'right'])
+  assert.equal(IT_PEOPLE.length, 6)
+  // The desks are four, two in each zone, and nothing stands in the middle.
+  assert.deepEqual(IT_DESKS.map(desk => zoneOf(desk.x + 24)), ['left', 'left', 'right', 'right'])
+  // Control: a person placed under the chat column would be read as the middle.
+  assert.equal(zoneOf(96), 'middle')
+})
+
+test('marketing: the photo kit (tripod, phone table) is in the left zone below the discussion table; the work desks are in the right zone', () => {
+  const trace = buildTrace('marketing')
+  const table = trace.find(e => e.path === 'furniture/SMALL_TABLE_FRONT.png')
+  const desks = trace.filter(e => e.path === 'furniture/DESK_FRONT.png')
+  const lit = litCells(MARKETING_SVG)
+  const ring = [...lit].filter(([, c]) => c === MARKERS.marketing.ring.toUpperCase()).map(([k]) => Number(k.split(',')[0]))
+  const heart = [...lit].filter(([, c]) => c === MARKERS.marketing.heart.toUpperCase()).map(([k]) => Number(k.split(',')[0]))
+
+  assert.equal(zoneOf(table.x), 'left')
+  assert.ok(ring.length > 20 && ring.every(x => x < LEFT_END))
+  assert.ok(heart.length > 4 && heart.every(x => x < LEFT_END))
+  assert.equal(desks.length, 3)
+  assert.deepEqual(desks.map(d => zoneOf(d.x)), ['right', 'right', 'right'])
+})
+
+// A station is its desk, its monitors or PC, and the person with the chair back; its opaque rows run from the top of the
+// tallest sprite (the monitor, or the desk) to the foot of the chair. The floor between two stations of a column is the rows
+// strictly between the lower one's top and the upper one's foot.
+const opaqueRows = path => {
+  const { top, bottom } = opaque(png(path), 0, 0, png(path).width, png(path).height)
+  return [top, bottom]
+}
+function stationsOf(name) {
+  const trace = buildTrace(name)
+  const [deskTop, deskBottom] = opaqueRows('furniture/DESK_FRONT.png')
+  const [, chairBottom] = opaqueRows('furniture/WOODEN_CHAIR_BACK.png')
+  return trace
+    .filter(e => e.path === 'furniture/DESK_FRONT.png')
+    .map(desk => {
+      let top = desk.y + deskTop
+      for (const e of trace) {
+        const pc = e.path?.match(/furniture\/(PC_FRONT_ON_\d)\.png/)
+        if (pc && e.x >= desk.x && e.x < desk.x + 48 && e.y >= desk.y - 8 && e.y <= desk.y) top = Math.min(top, e.y + opaqueRows(`furniture/${pc[1]}.png`)[0])
+      }
+      const chair = trace.find(e => e.path === 'furniture/WOODEN_CHAIR_BACK.png' && e.x === desk.x + 16 && e.y === desk.y + 8)
+      return { x: desk.x, top, bottom: Math.max(desk.y + deskBottom, chair ? chair.y + chairBottom : 0) }
+    })
+}
+// The smallest visible floor gap, in rows, between stations of one column (undefined when no column has two).
+function floorGap(stations) {
+  const columns = new Map()
+  for (const s of stations) columns.set(s.x, [...(columns.get(s.x) ?? []), s].sort((p, q) => p.top - q.top))
+  const gaps = [...columns.values()].flatMap(list => list.slice(1).map((s, i) => s.top - list[i].bottom - 1))
+  return gaps.length ? Math.min(...gaps) : undefined
+}
+
+test('between two stations of a column there is as much floor as between the ACCA desks, measured from the lower monitor or PC to the upper chair', () => {
+  const classroom = floorGap(stationsOf('classroom'))
+
+  // The classroom: desks 40 rows apart, no monitors: 40 + 11 - 39 - 1 rows of floor.
+  assert.equal(classroom, 11)
+  for (const name of ['marketing', 'it']) {
+    const gap = floorGap(stationsOf(name))
+    assert.ok(gap >= classroom, `${name}: ${gap} rows of floor, the classroom has ${classroom}`)
+  }
+  assert.equal(floorGap(stationsOf('marketing')), 11)
+  assert.equal(floorGap(stationsOf('it')), 11)
+  // Controls: the measure is live. The last commit's stations (desks 46 apart, a monitor 6 rows above each desk) left no floor,
+  // a station that overlaps the one above gives a negative gap, and one station alone has no gap to measure.
+  assert.equal(floorGap([{ x: 0, top: 38, bottom: 83 }, { x: 0, top: 84, bottom: 129 }]), 0)
+  assert.equal(floorGap([{ x: 0, top: 38, bottom: 90 }, { x: 0, top: 84, bottom: 130 }]), -7)
+  assert.equal(floorGap([{ x: 0, top: 0, bottom: 10 }]), undefined)
+})
+
+test('the teacher faces the students: the front frame (row 0 of the sheet), not the back one', () => {
+  const teacher = buildTrace('classroom').find(e => e.path === 'characters/char_5.png')
+  const sheet = png('characters/char_5.png')
+  // A face: skin-coloured pixels in the head rows of the frame; the back of a head has none.
+  const skin = (col, row) => {
+    let count = 0
+    for (let j = 8; j < 15; j++) {
+      for (let i = 3; i < 13; i++) {
+        const o = ((row * 32 + j) * sheet.width + col * 16 + i) * 4
+        const [r, g, b, a] = [0, 1, 2, 3].map(k => sheet.rgba[o + k])
+        if (a > 250 && r > 190 && g > 130 && b > 90 && r > g && g > b) count++
+      }
+    }
+    return count
+  }
+
+  assert.equal(teacher.sy, 0)
+  assert.equal(teacher.sx, 0)
+  assert.ok(skin(0, 0) >= 10, `front ${skin(0, 0)}`)
+  assert.ok(skin(1, 1) < 3, `back ${skin(1, 1)}`)
 })

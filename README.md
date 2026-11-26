@@ -26,7 +26,7 @@ Tạo bởi SAPP IT Department, © 2026.
 
 Không giao diện nào ép kiểu cửa sổ (không dùng `overrideColorScheme`): mỗi nền và mỗi bảng màu có cả bản sáng lẫn tối, cửa sổ chọn bản nào thì hiện bản đó. Các giao diện có chuyển động đều chạy bằng shader trên GPU và không nhấp nháy (mọi thay đổi dưới 3 lần mỗi giây). Các mã đã bỏ (`acca-night`, trùng với `acca-classroom` ở chế độ tối; `marketing-board`, `it-blueprint` và `sapp-plain`) không còn trong danh sách; ai đã lưu một trong các mã đó sẽ quay về `acca-classroom`.
 
-![Ảnh xem trước: mỗi giao diện một hàng, chế độ sáng bên trái, tối bên phải, có ghi tên](plugins/sapp-mod/preview.png)
+![Ảnh xem trước: mỗi giao diện một ô, cửa sổ sáng 1728x1117, hai nhóm hai bên và phòng trống ở giữa, có ghi tên](plugins/sapp-mod/preview.png)
 
 Ảnh trên là khung hình tĩnh của từng giao diện (chưa có chuyển động của shader). Khung hình tĩnh này cũng là cái người dùng thấy khi bật giảm chuyển động.
 
@@ -99,7 +99,7 @@ npm test                                  # node --test, không cần mạng
 claude plugin validate .                  # marketplace
 claude plugin validate plugins/sapp-mod   # plugin
 npm run build:scene                       # sinh lại ba cảnh pixel (hooks/scene*.js) từ sprite
-npm run preview                           # dựng lại preview.png (cần rsvg-convert và ImageMagick 7)
+npm run preview                           # dựng lại preview.png (cần Chromium, đặt biến CHROME nếu không có trên PATH; cùng rsvg-convert và ImageMagick 7)
 ```
 
 Ba cảnh pixel (lớp học, phòng Marketing, phòng IT) được sinh từ các sprite trong `plugins/sapp-mod/assets/` bằng `plugins/sapp-mod/scripts/build-scene.mjs` (Node, không cần mạng); kết quả là `hooks/scene.js`, `hooks/scene-marketing.js` và `hooks/scene-it.js`, đã commit, và mỗi cảnh có một bài test fail khi hai bên lệch nhau. Đồ vật không có trong bộ sprite (máy tính cầm tay, sách, lịch, thước, quạt, bàn chiến dịch, poster, bảng KPI, ring light, máy quay, điện thoại, tủ rack, laptop, màn hình) được vẽ bằng mã trong cùng thang màu. Sau khi đổi sprite hay bố cục: `npm run build:scene`, rồi `npm run preview`. Chuyển động là các shader `hooks/*.shader.ts`, mỗi shader tìm vật cần động trong chính ảnh Svg bằng một màu đánh dấu riêng (một bài test kiểm không màu nào khác của cảnh gần màu đánh dấu). Danh sách giao diện nằm ở `hooks/themes.js`; thêm một giao diện là thêm một dòng ở đó (mã, tên, màu, nền) và một bài test cho màu của nó.
