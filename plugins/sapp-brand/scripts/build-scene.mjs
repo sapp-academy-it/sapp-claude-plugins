@@ -5,7 +5,7 @@
 //
 // No network and nothing but the sprite files is read. Every sprite pixel is one
 // cell of a grid; horizontal runs of one colour merge into one rect, and the Svg
-// is scaled by the integer SCALE (width and height are SCALE times the viewBox) with crisp edges. No raster image is embedded.
+// is scaled by the integer SCALE (every coordinate is a cell times SCALE) with crisp edges. No raster image is embedded.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { inflateSync } from 'node:zlib'
@@ -254,7 +254,7 @@ function toRuns(get, background) {
 }
 
 const scaled = r =>
-  `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}"/>`
+  `<rect x="${r.x * SCALE}" y="${r.y * SCALE}" width="${r.w * SCALE}" height="${r.h * SCALE}"/>`
 
 // Dark mode sinks the room's own colours toward ink; sprites are never recoloured
 // (the dark veil alone mutes them).
@@ -309,10 +309,10 @@ export function buildScene() {
         .join('')}</g>`,
   )
 
-  const W = GRID_W
-  const H = GRID_H
+  const W = GRID_W * SCALE
+  const H = GRID_H * SCALE
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W * SCALE}" height="${H * SCALE}" ` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" ` +
     `preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges">` +
     `<style>${css}</style>` +
     `<rect class="bg" width="${W}" height="${H}"/>` +

@@ -109,7 +109,7 @@ test('the spinner says "SAPP đang xử lý…" in place of the word and leaves 
 
 test('the backdrop Svg stays under the 131072-character limit, with room to spare', () => {
   assert.ok(SCENE_SVG.length < 131072, `Svg is ${SCENE_SVG.length} characters`)
-  assert.ok(SCENE_SVG.length < 120000, `Svg is ${SCENE_SVG.length} characters`)
+  assert.ok(SCENE_SVG.length < 125000, `Svg is ${SCENE_SVG.length} characters`)
 })
 
 test('scripts/build-scene.mjs rebuilds hooks/scene.js byte for byte from the committed sprites', () => {
@@ -121,13 +121,18 @@ test('scripts/build-scene.mjs rebuilds hooks/scene.js byte for byte from the com
 })
 
 test('the scene is pixel cells at an integer scale: 4 times a 192 by 136 grid, crisp, rects only', () => {
-  assert.ok(SCENE_SVG.includes('viewBox="0 0 192 136" width="768" height="544"'))
+  // The viewBox carries the scale; no intrinsic width or height, so the app sizes it.
+  assert.ok(SCENE_SVG.startsWith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 544" preserveAspectRatio="xMidYMid slice"'))
+  assert.equal(/<svg [^>]*\b(width|height)=/.test(SCENE_SVG), false)
   assert.ok(SCENE_SVG.includes('shape-rendering="crispEdges"'))
   const rects = SCENE_SVG.match(/<rect /g).length
   assert.ok(rects > 2000, `${rects} rects`)
   // Every cell rect has whole-number geometry.
   for (const [, x, y, w, h] of SCENE_SVG.matchAll(/<rect x="([^"]*)" y="([^"]*)" width="([^"]*)" height="([^"]*)"/g)) {
-    for (const v of [x, y, w, h]) assert.match(v, /^\d+$/)
+    for (const v of [x, y, w, h]) {
+      assert.match(v, /^\d+$/)
+      assert.equal(Number(v) % 4, 0, `${v} is not a whole number of 4-pixel cells`)
+    }
   }
   for (const banned of ['<path', '<circle', '<polygon', '<line', '<ellipse']) {
     assert.equal(SCENE_SVG.includes(banned), false, banned)
@@ -139,7 +144,7 @@ test('the backdrop is pure vector with nothing the engine refuses', () => {
     assert.equal(SCENE_SVG.includes(banned), false, banned)
   }
   assert.ok(SCENE_SVG.startsWith('<svg '))
-    assert.ok(SCENE_SVG.includes('preserveAspectRatio="xMidYMid slice"'))
+  assert.ok(SCENE_SVG.includes('preserveAspectRatio="xMidYMid slice"'))
 })
 
 test('the Backdrop hook draws the scene under the shader on the desktop', async () => {

@@ -19,7 +19,7 @@ try {
   writeFileSync(join(dir, 'light.svg'), SCENE_SVG)
   writeFileSync(join(dir, 'dark.svg'), dark)
   for (const name of ['light', 'dark']) {
-    execFileSync('rsvg-convert', ['-w', '1000', '-o', join(dir, `${name}.png`), join(dir, `${name}.svg`)])
+    execFileSync('rsvg-convert', ['-w', '1000', '-h', '708', '-o', join(dir, `${name}.png`), join(dir, `${name}.svg`)])
   }
   execFileSync('magick', [join(dir, 'light.png'), join(dir, 'dark.png'), '+append', out])
 } finally {
