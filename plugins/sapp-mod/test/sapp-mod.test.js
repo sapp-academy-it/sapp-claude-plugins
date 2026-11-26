@@ -341,13 +341,13 @@ test('scripts/build-scene.mjs rebuilds hooks/scene.js byte for byte from the com
   assert.notEqual(buildSceneModule(), committed.replace('ACCA', 'ACCB'))
 })
 
-test('the classroom is pixel cells at an integer scale: 4 times a 192 by 136 grid, crisp, no width or height', () => {
-  assert.ok(SCENE_SVG.startsWith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 544" preserveAspectRatio="xMidYMid slice"'))
+test('the classroom is pixel cells at an integer scale: 4 times a 192 by 200 grid, crisp, no width or height', () => {
+  assert.ok(SCENE_SVG.startsWith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 800" preserveAspectRatio="xMidYMid slice"'))
   assert.equal(/<svg [^>]*\b(width|height)=/.test(SCENE_SVG), false)
   assert.ok(SCENE_SVG.includes('shape-rendering="crispEdges"'))
   // Every subpath is a rectangle of whole cells: M x y h w v h h -w z, all multiples of 4.
   const subpaths = [...SCENE_SVG.matchAll(/M(\d+) (\d+)h(\d+)v(\d+)h-(\d+)z/g)]
-  assert.ok(subpaths.length > 2000)
+  assert.ok(subpaths.length > 1500)
   for (const [, x, y, w, h, back] of subpaths) {
     for (const v of [x, y, w, h]) assert.equal(Number(v) % 4, 0, `${v} is not a whole number of 4-pixel cells`)
     assert.equal(w, back)
@@ -363,8 +363,8 @@ test('every backdrop is pure vector with nothing the engine refuses', () => {
       assert.equal(t.svg.includes(banned), false, `${t.id} ${banned}`)
     }
     assert.ok(t.svg.startsWith('<svg '), t.id)
-    assert.ok(t.svg.includes('preserveAspectRatio="xMidYMid slice"'), t.id)
-    assert.equal(/<svg [^>]*\b(width|height)=/.test(t.svg), false, t.id)
+    assert.ok(t.svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" shape-rendering="crispEdges">'), t.id)
+    assert.equal(t.svg.includes('viewBox'), false, t.id)
   }
 })
 
@@ -376,7 +376,7 @@ test('the dots scene is deterministic, uses circles only and grows toward the bo
   const at = (x, y) => radii.find(([cx, cy]) => cx === x && cy === y)?.[2]
 
   assert.ok(radii.length > 100)
-  assert.ok(at(752, 528) > at(432, 272))
+  assert.ok(at(752, 528) > at(560, 272))
   assert.equal(at(16, 16), undefined)
   assert.equal(dots.includes('<rect x='), false)
 })
@@ -390,7 +390,7 @@ test('the Backdrop hook draws each scene: a Shader over the Svg for the classroo
   const day = await draw('sapp-acca-classroom')
   assert.equal(day.type, 'Shader')
   assert.equal(day.props.module, './backdrop.shader.ts')
-  assert.equal(day.props.children[0].props.source, SCENE_SVG)
+  assert.ok(day.props.children[0].props.source.startsWith('<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" shape-rendering="crispEdges"><style>.bg{fill:#EADFC4}'))
 
   const dots = await draw('sapp-dots')
   assert.equal(dots.type, 'Svg')

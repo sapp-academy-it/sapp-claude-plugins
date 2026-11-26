@@ -14,7 +14,7 @@ import { THEMES } from '../hooks/themes.js'
 const out = fileURLToPath(new URL('../preview.png', import.meta.url))
 const dir = mkdtempSync(join(tmpdir(), 'sapp-preview-'))
 const TW = 640
-const TH = 453
+const TH = 667
 const LABEL = 44
 
 const escapeXml = text => text.replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -60,7 +60,7 @@ const label = (name, text, dark) =>
 try {
   const rows = THEMES.map((theme, index) => {
     const tiles = ['light', 'dark'].map(mode => {
-      const base = theme.svg ?? swatch(theme, mode)
+      const base = theme.art ?? theme.svg ?? swatch(theme, mode)
       const art = mode === 'dark' && theme.svg ? darkOf(base) : base
       const tile = png(`t${index}-${mode}`, art, TW, TH)
       const text = label(`l${index}-${mode}`, `${theme.title} (${mode === 'light' ? 'sáng' : 'tối'})`, mode === 'dark')
