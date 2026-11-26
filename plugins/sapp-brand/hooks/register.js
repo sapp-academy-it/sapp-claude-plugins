@@ -2,7 +2,6 @@ import { THEMES, pickTheme, themeOrDefault } from './themes.js'
 
 export const CREDIT = 'Tạo bởi SAPP IT Department, © 2026'
 export const SPINNER_TEXT = 'SAPP đang xử lý'
-export const COMMAND = 'sapp-theme'
 // The one key this mod keeps in its own store: the id of the chosen theme.
 export const STORE_KEY = 'theme'
 
@@ -10,6 +9,8 @@ const apply = async ($, theme) => {
   // The whole theme in one set: what a set leaves out is gone, so a theme with no
   // scene sets no backdrop and the previous theme's scene is dropped.
   const attributes = { colors: theme.colors }
+  // A theme made for one window kind (the night classroom) says so; the others follow the window.
+  if (theme.colorScheme) attributes.overrideColorScheme = theme.colorScheme
   if (theme.scene) attributes.backdrop = { scene: theme.scene, glass: theme.glass }
   await $.theme.set(attributes)
 }
@@ -28,17 +29,23 @@ const listText = current =>
     ...THEMES.map(
       (t, i) => `${i + 1}. ${t.title} (${t.id}): ${t.blurb}${t === current ? ' [đang dùng]' : ''}`,
     ),
-    `Đổi bằng /${COMMAND} <số, mã hoặc tên>. Nền và màu chỉ hiện ở tab Code của Desktop và trên mobile.`,
+    `Đổi bằng /sapp-theme <số, mã hoặc tên>. Nền và màu chỉ hiện ở tab Code của Desktop và trên mobile.`,
   ].join('\n')
 
-const switchTo = async ($, theme) => {
+const switchTo = async ($, theme, state) => {
   try {
     await apply($, theme)
+    state.applied = theme
   } catch {
     return `Không áp dụng được "${theme.title}" trên bản Claude Code này.`
   }
   // The credit line is ours too: set it again so a switch can never leave it out.
-  $.ui.status(CREDIT)
+  // A status that throws must not stop the choice being stored or the command answered.
+  try {
+    $.ui.status(CREDIT)
+  } catch {
+    // The line stays as it was.
+  }
   try {
     await $.store.set(STORE_KEY, theme.id)
   } catch {
@@ -47,19 +54,46 @@ const switchTo = async ($, theme) => {
   return `Đã đổi sang "${theme.title}" và lưu lại cho các phiên sau.`
 }
 
+// The theme this session applied lives in `state`; before any, the stored one stands.
+const answer = async ($, e, state) => {
+  const asked = (e.args ?? '').trim()
+  const now = state.applied ?? themeOrDefault(await stored($))
+  if (asked === '') return { text: listText(now), isTextDisplayOnly: true }
+
+  const theme = pickTheme(asked)
+  if (!theme) {
+    return {
+      text: `Không có giao diện "${shown(asked)}".\n${listText(now)}`,
+      isTextDisplayOnly: true,
+    }
+  }
+  return { text: await switchTo($, theme, state), isTextDisplayOnly: true }
+}
+
+// A long unknown name is cut before it is echoed.
+const shown = text => (text.length > 64 ? `${text.slice(0, 64)}…` : text)
+
 export const register = on => {
+  const state = { applied: undefined }
+
   on('session.start', async ($, e, next) => {
     // The credit line first: an older Claude Code without $.theme.set still shows it.
-    $.ui.status(CREDIT)
     try {
-      await apply($, themeOrDefault(await stored($)))
+      $.ui.status(CREDIT)
+    } catch {
+      // No status line on this build.
+    }
+    try {
+      const theme = themeOrDefault(await stored($))
+      await apply($, theme)
+      state.applied = theme
     } catch {
       // No theme on this build; the rest of the mod still works.
     }
     // Last: a refused command name must not cost the session its theme.
     try {
       await $.command.register({
-        name: COMMAND,
+        name: 'sapp-theme',
         description: 'Đổi giao diện SAPP. Không có tham số thì liệt kê các giao diện.',
         argumentHint: '[số | mã | tên]',
       })
@@ -70,20 +104,9 @@ export const register = on => {
     return next(e)
   })
 
-  on('command.run', { command: COMMAND }, async ($, e) => {
-    const asked = (e.args ?? '').trim()
-    const current = themeOrDefault(await stored($))
-    if (asked === '') return { text: listText(current), isTextDisplayOnly: true }
-
-    const theme = pickTheme(asked)
-    if (!theme) {
-      return {
-        text: `Không có giao diện "${asked}".\n${listText(current)}`,
-        isTextDisplayOnly: true,
-      }
-    }
-    return { text: await switchTo($, theme), isTextDisplayOnly: true }
-  })
+  on('command.run', { command: 'sapp-theme' }, ($, e) =>
+    answer($, e, state).catch(() => ({ text: 'Lệnh /sapp-theme gặp lỗi, giao diện không đổi.', isTextDisplayOnly: true })),
+  )
 
   on('ui.render', { component: 'Backdrop' }, ($, e, next) => {
     if (e.surface !== 'desktop' && e.surface !== 'mobile') {

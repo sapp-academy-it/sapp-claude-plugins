@@ -20,7 +20,7 @@ Tạo bởi SAPP IT Department, © 2026.
 | Số | Mã | Tên | Nội dung |
 | :-- | :-- | :-- | :-- |
 | 1 | `acca-classroom` | Lớp học ACCA (mặc định) | Lớp học pixel art nhìn từ cuối lớp: bảng ghi ACCA, thầy giáo, bàn học có máy tính, học viên. Màn hình phát sáng nhẹ, bụi phấn trôi, vệt sáng quanh con trỏ (shader). Màu SAPP |
-| 2 | `acca-night` | Lớp học ACCA ban đêm | Cùng lớp học, phủ thêm một lớp xanh đêm, màn hình vẫn sáng (shader). Bảng màu xanh đêm, vẫn nhấn vàng SAPP |
+| 2 | `acca-night` | Lớp học ACCA ban đêm | Cùng lớp học, phủ thêm một lớp xanh đêm, màn hình vẫn sáng (shader). Bảng màu xanh đêm, vẫn nhấn vàng SAPP. Luôn hiện ở chế độ tối (`overrideColorScheme: dark`) |
 | 3 | `sapp-dots` | Chấm vàng SAPP | Lưới chấm vàng SAPP to dần về góc dưới bên phải, vẽ bằng mã, tĩnh. Màu SAPP |
 | 4 | `sapp-plain` | SAPP cơ bản | Chỉ màu SAPP, không có nền |
 

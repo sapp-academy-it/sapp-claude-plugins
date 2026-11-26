@@ -6,34 +6,19 @@ import { CREDIT, SPINNER_TEXT, STORE_KEY, register } from '../hooks/register.js'
 import { SCENE_SVG } from '../hooks/scene.js'
 import { THEMES, dotsSvg, nightOf, pickTheme, themeOrDefault } from '../hooks/themes.js'
 import { tokens } from '../hooks/tokens.js'
+import { makeColors } from '../hooks/make-colors.js'
 import { buildSceneModule, SCREEN_LIT } from '../scripts/build-scene.mjs'
 import { registered, render, runCommand, startSession } from './harness.js'
 
-// Events that read or change what Claude does, or what the person typed.
-const FORBIDDEN = [
-  'tool.call',
-  'tool.check',
-  'tool.describe',
-  'prompt.submit',
-  'prompt.compose',
-  'prompt.section',
-  'prompt.context',
-  'prompt.attachment',
-  'skill.prompt',
-  'session.append',
-  'attribution.text',
-  'settings.read',
-  'plugin.register',
-  'telemetry.log',
-]
+// Events that read or change what Claude does, or what the person typed: whole
+// families by prefix, plus these exact names.
+const FORBIDDEN_PREFIXES = ['tool.', 'prompt.', 'classic.']
+const FORBIDDEN = ['skill.prompt', 'session.append', 'attribution.text', 'settings.read', 'plugin.register', 'telemetry.log']
+const isForbidden = event => FORBIDDEN.includes(event) || FORBIDDEN_PREFIXES.some(prefix => event.startsWith(prefix))
 
-// What a register function sets up that is not allowed: any forbidden event, or
-// a classic.<Event> hook.
+// What a register function sets up that is not allowed.
 function violations(registerFn) {
-  const engine = registered(registerFn)
-  return engine.hooks
-    .map(h => h.event)
-    .filter(event => FORBIDDEN.includes(event) || event.startsWith('classic.'))
+  return registered(registerFn).hooks.map(h => h.event).filter(isForbidden)
 }
 
 const setCalls = engine => engine.calls.filter(c => c.path === 'theme.set')
@@ -488,10 +473,11 @@ test('the forbidden-event check fails on a register() that hooks tool.call and p
     on('session.start', (_, e, next) => next(e))
     on('tool.call', (_, e, next) => next(e))
     on('prompt.submit', (_, e, next) => next(e))
+    on('tool.future-event', (_, e, next) => next(e))
     on('classic.PreToolUse', (_, e, next) => next(e))
   }
 
-  assert.deepEqual(violations(bad), ['tool.call', 'prompt.submit', 'classic.PreToolUse'])
+  assert.deepEqual(violations(bad), ['tool.call', 'prompt.submit', 'tool.future-event', 'classic.PreToolUse'])
 })
 
 test('running every hook makes no call on $ beyond the pinned set', async () => {
@@ -505,4 +491,68 @@ test('running every hook makes no call on $ beyond the pinned set', async () => 
 
   // No $.fs, $.process, $.http, $.env, $.tool, $.model, $.mcp, $.prompt, $.session.
   assert.deepEqual(used, ['command.register', 'store.get', 'store.set', 'theme.set', 'ui.resolve', 'ui.status'])
+})
+
+// ---- review round 1 ------------------------------------------------------------------------
+
+test('the "Desktop won\'t paint" filter goes red on a palette with unreadable text (negative case)', () => {
+  const { problems } = makeColors({
+    label: 'Bad',
+    light: { gray: { anchors: { 'surface-0': '#FAF8F3', 'text-primary': '#C9C5BA', 'text-muted': '#DAD6CC' } } },
+  })
+
+  assert.ok(problems.some(line => line.startsWith("Desktop won't paint")), problems.join('\n'))
+})
+
+test('a title typed in capitals with the letter Đ still matches', async () => {
+  assert.equal(pickTheme('LỚP HỌC ACCA BAN ĐÊM').id, 'acca-night')
+  assert.equal(pickTheme('Đ'), undefined)
+})
+
+test('an unknown name is echoed at most 64 characters long', async () => {
+  const engine = registered()
+  const out = await runCommand(engine, 'sapp-theme', 'x'.repeat(200))
+
+  assert.ok(out.text.startsWith(`Không có giao diện "${'x'.repeat(64)}…".\n`))
+  assert.equal(out.text.includes('x'.repeat(65)), false)
+})
+
+test('a status line that throws during a switch does not stop the store or the answer', async () => {
+  const engine = registered(register, { throwOn: 'ui.status' })
+  const out = await runCommand(engine, 'sapp-theme', 'sapp-dots')
+
+  assert.equal(engine.store.get(STORE_KEY), 'sapp-dots')
+  assert.equal(out.text, 'Đã đổi sang "Chấm vàng SAPP" và lưu lại cho các phiên sau.')
+  // And at the start of a session the theme is still set.
+  const started = registered(register, { throwOn: 'ui.status' })
+  await startSession(started)
+  assert.equal(lastSet(started).backdrop.scene, 'sapp-acca-classroom')
+})
+
+test('a command that fails inside answers with a display-only error and changes nothing', async () => {
+  const engine = registered()
+  // Arguments that are not text make the handler throw.
+  const out = await runCommand(engine, 'sapp-theme', 5)
+
+  assert.deepEqual(out, { text: 'Lệnh /sapp-theme gặp lỗi, giao diện không đổi.', isTextDisplayOnly: true })
+  assert.equal(setCalls(engine).length, 0)
+})
+
+test('the list marks the theme applied in this session, even when it could not be stored', async () => {
+  const engine = registered(register, { throwOn: 'store.set', store: new Map([[STORE_KEY, 'sapp-plain']]) })
+  await runCommand(engine, 'sapp-theme', 'sapp-dots')
+  const out = await runCommand(engine, 'sapp-theme', '')
+
+  assert.ok(out.text.startsWith('Giao diện SAPP, đang dùng: Chấm vàng SAPP.'))
+  assert.ok(out.text.includes('(sapp-dots): Lưới chấm vàng SAPP tĩnh, nhẹ [đang dùng]'))
+  assert.equal(out.text.includes('(sapp-plain): Chỉ màu SAPP, không nền [đang dùng]'), false)
+})
+
+test('acca-night always shows as the dark scene: overrideColorScheme is dark; no other theme sets it', async () => {
+  for (const t of THEMES) {
+    const engine = registered()
+    await runCommand(engine, 'sapp-theme', t.id)
+
+    assert.equal(lastSet(engine).overrideColorScheme, t.id === 'acca-night' ? 'dark' : undefined, t.id)
+  }
 })

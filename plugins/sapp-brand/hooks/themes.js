@@ -104,6 +104,7 @@ export const THEMES = [
     blurb: 'Lớp học pixel art về đêm, màu giao diện xanh đêm',
     colors: night.theme,
     problems: night.problems,
+    colorScheme: 'dark',
     scene: 'sapp-acca-night',
     svg: nightOf(SCENE_SVG),
     alt: NIGHT_ALT,
@@ -138,10 +139,10 @@ export const themeOrDefault = id => themeOf(id) ?? defaultTheme()
 
 const plain = text =>
   text
+    .toLowerCase()
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
     .replace(/đ/g, 'd')
-    .toLowerCase()
     .trim()
 
 // What a person typed after /sapp-theme: a number from the list, an id, or the title
