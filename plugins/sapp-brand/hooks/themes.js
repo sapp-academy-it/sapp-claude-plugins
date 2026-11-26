@@ -4,6 +4,9 @@
 // The shape follows Anthropic's theme-examples (Apache-2.0): one table, one row per
 // theme, the id as the key everything else looks up; see README for the attribution.
 import { makeColors } from './make-colors.js'
+import { BLUEPRINT_ALT, BOARD_ALT, blueprintSvg, boardSvg } from './diagrams.js'
+import { IT_ALT, IT_SVG } from './scene-it.js'
+import { MARKETING_ALT, MARKETING_SVG } from './scene-marketing.js'
 import { SCENE_ALT, SCENE_SVG } from './scene.js'
 import { tokens } from './tokens.js'
 
@@ -85,21 +88,27 @@ const night = makeColors({
 
 const GLASS = { blur: 14, opacity: 0.72 }
 
+// `shader` names one of the shader files register.js plays over the Svg (each file
+// is written out there as a literal path, which is how the engine reads it); absent,
+// the Svg shows alone. `team` is who the theme is for, `colorScheme` the window kind
+// a theme is made for (absent = it follows the window).
 export const THEMES = [
   {
     id: 'acca-classroom',
+    team: 'ACCA',
     title: 'Lớp học ACCA',
-    blurb: 'Lớp học pixel art có ánh sáng từ màn hình máy tính (mặc định)',
+    blurb: 'Lớp học pixel art: bảng ACCA, thầy chỉ bảng, quạt trần quay chậm (mặc định)',
     colors: sapp.theme,
     problems: sapp.problems,
     scene: 'sapp-acca-classroom',
     svg: SCENE_SVG,
     alt: SCENE_ALT,
-    shader: true,
+    shader: 'classroom',
     glass: GLASS,
   },
   {
     id: 'acca-night',
+    team: 'ACCA',
     title: 'Lớp học ACCA ban đêm',
     blurb: 'Lớp học pixel art về đêm, màu giao diện xanh đêm',
     colors: night.theme,
@@ -108,7 +117,62 @@ export const THEMES = [
     scene: 'sapp-acca-night',
     svg: nightOf(SCENE_SVG),
     alt: NIGHT_ALT,
-    shader: true,
+    shader: 'classroom',
+    glass: GLASS,
+  },
+  {
+    id: 'marketing-room',
+    team: 'Marketing',
+    title: 'Phòng Marketing',
+    blurb: 'Phòng Marketing pixel art: bàn chiến dịch, bảng KPI, góc quay nội dung',
+    colors: sapp.theme,
+    problems: sapp.problems,
+    scene: 'sapp-marketing-room',
+    svg: MARKETING_SVG,
+    alt: MARKETING_ALT,
+    shader: 'marketing',
+    glass: GLASS,
+  },
+  {
+    id: 'marketing-board',
+    team: 'Marketing',
+    title: 'Bảng ý tưởng',
+    blurb: 'Lưới giấy ghi nhớ vàng và trắng như kế hoạch nội dung, làm cho nền sáng',
+    colors: sapp.theme,
+    problems: sapp.problems,
+    colorScheme: 'light',
+    scene: 'sapp-marketing-board',
+    svg: boardSvg(),
+    alt: BOARD_ALT,
+    shader: 'marketing-board',
+    glass: GLASS,
+  },
+  {
+    id: 'it-room',
+    team: 'IT',
+    title: 'Phòng IT',
+    blurb: 'Phòng IT pixel art về đêm: tủ rack, màn hình giám sát, đèn LED nhấp nháy chậm',
+    colors: night.theme,
+    problems: night.problems,
+    colorScheme: 'dark',
+    scene: 'sapp-it-room',
+    svg: IT_SVG,
+    alt: IT_ALT,
+    shader: 'it-room',
+    glass: GLASS,
+  },
+  {
+    id: 'it-blueprint',
+    team: 'IT',
+    title: 'Bản vẽ mạng',
+    blurb: 'Sơ đồ mạng nét mảnh trên nền xanh đậm, gói tin chạy chậm trên đường link',
+    colors: night.theme,
+    problems: night.problems,
+    colorScheme: 'dark',
+    scene: 'sapp-it-blueprint',
+    svg: blueprintSvg(),
+    alt: BLUEPRINT_ALT,
+    shader: 'it-blueprint',
     glass: GLASS,
   },
   {
@@ -120,7 +184,6 @@ export const THEMES = [
     scene: 'sapp-dots',
     svg: dotsSvg(),
     alt: DOTS_ALT,
-    shader: false,
     glass: { blur: 10, opacity: 0.72 },
   },
   {
