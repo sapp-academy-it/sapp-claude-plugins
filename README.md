@@ -19,6 +19,8 @@ Tạo bởi SAPP IT Department, © 2026.
 
 Ảnh trên là khung hình tĩnh của từng giao diện (chưa có chuyển động).
 
+**Giao diện mặc định là tắt:** cài xong, Claude Code giữ giao diện của nó cho tới khi bạn bật bằng `/sapp-theme on`. Dòng credit và chữ "SAPP đang xử lý…" luôn có, không phụ thuộc giao diện.
+
 Nơi hiện:
 
 - **Tab Code của Claude Desktop và trên mobile:** giao diện đầy đủ (nền và màu), cộng dòng credit "Tạo bởi SAPP IT Department, © 2026" và chữ "SAPP đang xử lý…" khi Claude làm việc.
@@ -29,13 +31,14 @@ Cần Claude Code từ **2.1.330** trở lên.
 ### Lệnh
 
 ```text
-/sapp-theme                 # liệt kê các giao diện, đánh dấu cái đang dùng
-/sapp-theme it-room         # đổi theo mã, theo số trong danh sách hoặc theo tên
-/sapp-theme off             # tắt giao diện SAPP (giữ dòng credit và chữ "SAPP đang xử lý…"); bật lại bằng /sapp-theme on
+/sapp-theme                 # liệt kê các giao diện, cho biết đang bật hay tắt
+/sapp-theme on              # bật giao diện (giao diện đã chọn gần nhất, mặc định Lớp học ACCA)
+/sapp-theme it-room         # bật và đổi theo mã, theo số trong danh sách hoặc theo tên
+/sapp-theme off             # tắt giao diện SAPP (giữ dòng credit và chữ "SAPP đang xử lý…")
 /sapp-help                  # trang trợ giúp SAPP và hướng dẫn "Dùng Claude hiệu quả"
 ```
 
-Lựa chọn giao diện, kể cả việc tắt, được lưu và dùng lại ở các phiên sau. `/sapp-help` không tốn lượt nào của Claude.
+Lựa chọn giao diện, kể cả việc bật hoặc tắt, được lưu và dùng lại ở các phiên sau. `/sapp-help` không tốn lượt nào của Claude.
 
 ## Cài cho một người
 

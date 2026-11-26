@@ -66,7 +66,7 @@ test('/sapp-help where no pane is drawn answers the whole card as text and start
   const installed = out.text.split('## Đang cài: sapp-mod')[1].split('\n## ')[0].split('\n').filter(line => line.startsWith('- '))
   assert.deepEqual(installed, [
     '- Giao diện SAPP cho Claude Code (hiện ở tab Code của Claude Desktop).',
-    '- Đổi giao diện: gõ `/sapp-theme`; tắt: `/sapp-theme off`.',
+    '- Giao diện SAPP mặc định tắt: bật bằng `/sapp-theme on`, đổi bằng `/sapp-theme`.',
     '- Xem hướng dẫn dùng Claude: gõ `/sapp-help` (trang này).',
   ])
   // No implementation detail in the card.
