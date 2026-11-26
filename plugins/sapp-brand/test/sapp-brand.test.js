@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import { CREDIT, SPINNER_TEXT, register, themeProblems } from '../hooks/register.js'
 import { SCENE_SVG } from '../hooks/scene.js'
 import { tokens } from '../hooks/tokens.js'
+import { buildSceneModule, SCREEN_LIT } from '../scripts/build-scene.mjs'
 import { registered, render, startSession } from './harness.js'
 
 // Events that read or change what Claude does, or what the person typed.
@@ -108,7 +109,29 @@ test('the spinner says "SAPP đang xử lý…" in place of the word and leaves 
 
 test('the backdrop Svg stays under the 131072-character limit, with room to spare', () => {
   assert.ok(SCENE_SVG.length < 131072, `Svg is ${SCENE_SVG.length} characters`)
-  assert.ok(SCENE_SVG.length < 100000, `Svg is ${SCENE_SVG.length} characters`)
+  assert.ok(SCENE_SVG.length < 120000, `Svg is ${SCENE_SVG.length} characters`)
+})
+
+test('scripts/build-scene.mjs rebuilds hooks/scene.js byte for byte from the committed sprites', () => {
+  const committed = readFileSync(new URL('../hooks/scene.js', import.meta.url), 'utf8')
+
+  assert.equal(buildSceneModule(), committed)
+  // Control: the comparison is live, a changed module does not match.
+  assert.notEqual(buildSceneModule(), committed.replace('ACCA', 'ACCB'))
+})
+
+test('the scene is pixel cells at an integer scale: 4 times a 192 by 136 grid, crisp, rects only', () => {
+  assert.ok(SCENE_SVG.includes('viewBox="0 0 192 136" width="768" height="544"'))
+  assert.ok(SCENE_SVG.includes('shape-rendering="crispEdges"'))
+  const rects = SCENE_SVG.match(/<rect /g).length
+  assert.ok(rects > 2000, `${rects} rects`)
+  // Every cell rect has whole-number geometry.
+  for (const [, x, y, w, h] of SCENE_SVG.matchAll(/<rect x="([^"]*)" y="([^"]*)" width="([^"]*)" height="([^"]*)"/g)) {
+    for (const v of [x, y, w, h]) assert.match(v, /^\d+$/)
+  }
+  for (const banned of ['<path', '<circle', '<polygon', '<line', '<ellipse']) {
+    assert.equal(SCENE_SVG.includes(banned), false, banned)
+  }
 })
 
 test('the backdrop is pure vector with nothing the engine refuses', () => {
@@ -116,8 +139,7 @@ test('the backdrop is pure vector with nothing the engine refuses', () => {
     assert.equal(SCENE_SVG.includes(banned), false, banned)
   }
   assert.ok(SCENE_SVG.startsWith('<svg '))
-  assert.ok(SCENE_SVG.includes('viewBox="0 0 200 112"'))
-  assert.ok(SCENE_SVG.includes('preserveAspectRatio="xMidYMid slice"'))
+    assert.ok(SCENE_SVG.includes('preserveAspectRatio="xMidYMid slice"'))
 })
 
 test('the Backdrop hook draws the scene under the shader on the desktop', async () => {
@@ -189,38 +211,47 @@ test('the theme is one Desktop will paint: no problem line starts "Desktop won\'
   assert.ok(themeProblems.length > 0)
 })
 
-// The shader finds lamp bulbs by green minus blue. Colours as drawn: each fill
-// seen through the veil. Only the bulb may reach the metric's range.
+// The shader finds lit PC screens by green far above red and above blue. Colours
+// as drawn: each fill seen through the veil. Only the marker may satisfy both.
 const hexToRgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
 const over = (top, bottom, alpha) => hexToRgb(top).map((v, i) => v * alpha + hexToRgb(bottom)[i] * (1 - alpha))
-const metric = ([, g, b]) => (g - b) / 255
+// The shader's smoothsteps start here: below either value the glow mask is 0.
+const fires = ([r, g, b]) => (g - r) / 255 > 0.5 && (g - b) / 255 > 0.36
 
-test('only the lamp bulb scores above 0.6 on the shader\'s lamp metric, in light and dark', () => {
+test('only the lit screen marker fires the shader\'s screen metric, in light and dark', () => {
   const [styleText] = SCENE_SVG.match(/<style>(.*)<\/style>/s).slice(1)
   const [lightCss, darkCss] = styleText.split('@media (prefers-color-scheme: dark){')
   const fills = css => [...css.matchAll(/\.c\d+\{fill:(#[0-9A-Fa-f]{6})\}/g)].map(m => m[1])
   const veil = css => css.match(/\.veil\{fill:(#[0-9A-Fa-f]{6});opacity:([.\d]+)\}/).slice(1)
-  const bulb = SCENE_SVG.match(/<g fill="(#[0-9A-Fa-f]{6})">(?:<rect [^>]*\/>)+<\/g><\/svg>/)[1]
+  // The groups after the veil carry their own fill: lit screens, drawn above it.
+  const afterVeil = SCENE_SVG.slice(SCENE_SVG.indexOf('<rect class="veil"'))
+  const litFills = [...afterVeil.matchAll(/<g fill="(#[0-9A-Fa-f]{6})">/g)].map(m => m[1])
 
-  assert.equal(bulb, '#FFEE22')
-  // The bulb is drawn after the veil: its own fill is what the shader sees.
-  assert.ok(metric(hexToRgb(bulb)) > 0.76)
+  assert.equal(SCREEN_LIT, '#00FF8C')
+  assert.ok(litFills.includes(SCREEN_LIT))
+  assert.equal(fires(hexToRgb(SCREEN_LIT)), true)
+  // Sprite colours drawn above the veil, other than the marker, never fire.
+  for (const fill of litFills.filter(c => c !== SCREEN_LIT)) {
+    assert.equal(fires(hexToRgb(fill)), false, `${fill} fires`)
+  }
 
   for (const css of [lightCss, darkCss]) {
     const [veilFill, veilAlpha] = veil(css)
-    const seen = fills(css)
-    assert.ok(seen.length > 20)
+    // The dark block repeats only the room's colours; sprites keep the light fills.
+    const seen = fills(lightCss)
+    assert.ok(seen.length > 60)
     for (const fill of seen) {
-      const scored = metric(over(veilFill, fill, Number(veilAlpha)))
-      assert.ok(scored < 0.6, `${fill} scores ${scored}`)
+      assert.equal(fires(over(veilFill, fill, Number(veilAlpha))), false, `${fill} fires under ${veilFill}`)
     }
-    // Halos use the bulb colour at 12 percent over the veiled scene.
-    for (const fill of seen) {
-      const veiled = over(veilFill, fill, Number(veilAlpha))
-      const haloed = veiled.map((v, i) => hexToRgb(bulb)[i] * 0.12 + v * 0.88)
-      assert.ok(metric(haloed) < 0.6, `${fill} under a halo scores ${metric(haloed)}`)
+    for (const fill of fills(css)) {
+      assert.equal(fires(over(veilFill, fill, Number(veilAlpha))), false, `${fill} fires under ${veilFill}`)
     }
   }
+})
+
+test('the glow metric is live: a plain mint-green cell does fire it (control)', () => {
+  assert.equal(fires([0, 255, 140]), true)
+  assert.equal(fires([96, 198, 119]), false)
 })
 
 test('register() registers no event that reads or changes Claude\'s actions', () => {

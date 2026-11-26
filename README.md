@@ -12,7 +12,7 @@ Tạo bởi SAPP IT Department, © 2026.
 | Việc | Nơi hiện |
 | :-- | :-- |
 | Màu giao diện SAPP, sáng và tối | Tab Code của ứng dụng Desktop |
-| Nền động: lớp học ACCA kiểu pixel art isometric (bảng đen ghi ACCA, bàn học, học viên), có ánh đèn, bụi phấn trôi và vệt sáng nhẹ quanh con trỏ | Tab Code của ứng dụng Desktop |
+| Nền động: lớp học ACCA kiểu pixel art nhìn từ cuối lớp (bảng ghi ACCA, thầy giáo, bàn học có máy tính, học viên), có ánh sáng nhẹ từ màn hình máy tính, bụi trôi và vệt sáng nhẹ quanh con trỏ | Tab Code của ứng dụng Desktop |
 | Dòng credit cố định "Tạo bởi SAPP IT Department, © 2026" (dòng trạng thái dưới ô nhập) | Mọi nơi Claude Code vẽ giao diện |
 | Chữ khi Claude đang xử lý: "SAPP đang xử lý…" thay cho từ quay vòng mặc định | Mọi nơi Claude Code vẽ giao diện |
 
@@ -69,7 +69,12 @@ Cấu trúc theo [Manage mods for your organization](https://code.claude.com/doc
 npm test                                  # node --test, không cần mạng
 claude plugin validate .                  # marketplace
 claude plugin validate plugins/sapp-brand # plugin
+npm run build:scene                       # sinh lại hooks/scene.js từ sprite
 npm run preview                           # dựng lại preview.png (cần rsvg-convert và ImageMagick 7)
 ```
 
-Cảnh nền dựng bằng mã trong `plugins/sapp-brand/hooks/scene.js`; chuyển động là shader `hooks/backdrop.shader.ts`.
+Cảnh nền được sinh từ các sprite pixel trong `plugins/sapp-brand/assets/` bằng `plugins/sapp-brand/scripts/build-scene.mjs` (Node, không cần mạng); kết quả là `hooks/scene.js`, đã commit, và một bài test fail khi hai bên lệch nhau. Sau khi đổi sprite hay bố cục: `npm run build:scene`, rồi `npm run preview`. Chuyển động là shader `hooks/backdrop.shader.ts`.
+
+## Ghi công sprite
+
+Nhân vật và đồ nội thất của cảnh nền là sprite pixel từ dự án pixel-agents, giấy phép MIT, Copyright (c) 2026 Pablo De Lucca. Toàn văn giấy phép nằm ở [`plugins/sapp-brand/assets/LICENSE-pixel-agents.txt`](plugins/sapp-brand/assets/LICENSE-pixel-agents.txt).

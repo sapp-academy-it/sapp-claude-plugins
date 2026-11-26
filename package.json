@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test \"plugins/sapp-brand/test/*.test.js\"",
+    "build:scene": "node plugins/sapp-brand/scripts/build-scene.mjs",
     "preview": "node plugins/sapp-brand/scripts/render-preview.mjs"
   }
 }
