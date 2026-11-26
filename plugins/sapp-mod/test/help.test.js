@@ -185,7 +185,7 @@ test('the card carries the SKILL.md body word for word, and hooks/guide.js is bu
 })
 
 test('the drift check is live: a SKILL.md edited without a rebuild no longer matches the committed guide', () => {
-  const edited = SKILL.replace('Giao việc rõ như giao cho một đồng nghiệp', 'Giao việc rõ như giao cho một người lạ')
+  const edited = SKILL.replace('Hỏi như đang nhắn tin cho một đồng nghiệp', 'Hỏi như đang nhắn tin cho một người lạ')
 
   assert.notEqual(edited, SKILL)
   assert.notEqual(buildGuideModule(edited), readFileSync(new URL('../hooks/guide.js', import.meta.url), 'utf8'))
