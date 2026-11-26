@@ -103,10 +103,24 @@ const showHelp = async $ => {
   return { text: HELP_MARKDOWN, isTextDisplayOnly: true }
 }
 
+// The credit line is set at session.start, but on the Desktop Code tab no status row is attached
+// that early and the call has no effect. The first render that arrives with a surface sets it again,
+// once per session; a status that throws never touches the render.
+const creditOnce = ($, e, state) => {
+  if (state.isCredited || e.surface == null) return
+  state.isCredited = true
+  try {
+    $.ui.status(CREDIT)
+  } catch {
+    // The line stays as it was.
+  }
+}
+
 export const register = on => {
-  const state = { applied: undefined }
+  const state = { applied: undefined, isCredited: false }
 
   on('session.start', async ($, e, next) => {
+    state.isCredited = false
     // The credit line first: an older Claude Code without $.theme.set still shows it.
     try {
       $.ui.status(CREDIT)
@@ -164,6 +178,7 @@ export const register = on => {
   })
 
   on('ui.render', { component: 'Backdrop' }, ($, e, next) => {
+    creditOnce($, e, state)
     if (e.surface !== 'desktop' && e.surface !== 'mobile') {
       return next(e)
     }
@@ -191,14 +206,15 @@ export const register = on => {
     }
   })
 
-  on('ui.render', { component: 'Spinner' }, ($, e, next) =>
-    next({
+  on('ui.render', { component: 'Spinner' }, ($, e, next) => {
+    creditOnce($, e, state)
+    return next({
       ...e,
       props: {
         ...e.props,
         word: SPINNER_TEXT,
         suffix: '…',
       },
-    }),
-  )
+    })
+  })
 }
