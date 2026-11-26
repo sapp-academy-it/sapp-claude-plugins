@@ -4,6 +4,8 @@
 // The shape follows Anthropic's theme-examples (Apache-2.0): one table, one row per
 // theme, the id as the key everything else looks up; see README for the attribution.
 import { makeColors } from './make-colors.js'
+import { IT_ALT, IT_SVG } from './scene-it.js'
+import { MARKETING_ALT, MARKETING_SVG } from './scene-marketing.js'
 import { SCENE_ALT, SCENE_SVG } from './scene.js'
 import { tokens } from './tokens.js'
 
@@ -11,16 +13,6 @@ export const DEFAULT_THEME_ID = 'acca-classroom'
 
 const W = 768
 const H = 544
-
-// The night classroom is the day classroom under one more veil of deep blue, drawn
-// after the room and before the lit PC screens, so the screens stay lit.
-export const nightOf = svg => {
-  const veil = `<rect class="veil" width="${W}" height="${H}"/>`
-  if (!svg.includes(veil) || !svg.includes('<style>')) throw new Error('scene has no veil to dim')
-  return svg
-    .replace('<style>', '<style>.dusk{fill:#0B1636;opacity:.5}')
-    .replace(veil, `${veil}<rect class="dusk" width="${W}" height="${H}"/>`)
-}
 
 // A grid of SAPP-yellow dots that swell toward the bottom-right corner: pure code,
 // no sprite. 24 by 17 cells of 32 units; every number is fixed to one decimal.
@@ -44,7 +36,6 @@ export const dotsSvg = () => {
   )
 }
 export const DOTS_ALT = 'Lưới chấm vàng SAPP, các chấm to dần về góc dưới bên phải'
-export const NIGHT_ALT = `${SCENE_ALT}, vào buổi tối`
 
 const sapp = makeColors({
   label: 'SAPP',
@@ -53,21 +44,11 @@ const sapp = makeColors({
   dark: { gray: { anchors: tokens.dark } },
 })
 
-const night = makeColors({
-  label: 'SAPP Night',
+// The IT themes follow the window: the SAPP cream in a light window, a deep night blue in a dark one.
+const sappIt = makeColors({
+  label: 'SAPP IT',
   roles: tokens.roles,
-  light: {
-    gray: {
-      anchors: {
-        'surface-0': '#EEF1F8',
-        'surface-1': '#FFFFFF',
-        'surface-2': '#FFFFFF',
-        'text-primary': '#111A33',
-        'text-secondary': '#46506B',
-        'text-muted': '#667090',
-      },
-    },
-  },
+  light: { gray: { anchors: tokens.light } },
   dark: {
     gray: {
       anchors: {
@@ -85,30 +66,48 @@ const night = makeColors({
 
 const GLASS = { blur: 14, opacity: 0.72 }
 
+// `shader` names one of the shader files register.js plays over the Svg (each file
+// is written out there as a literal path, which is how the engine reads it); absent,
+// the Svg shows alone. `team` is who the theme is for. No theme forces a window kind: every Svg and every
+// palette has a light and a dark look, and the engine picks by the window.
 export const THEMES = [
   {
     id: 'acca-classroom',
+    team: 'ACCA',
     title: 'Lớp học ACCA',
-    blurb: 'Lớp học pixel art có ánh sáng từ màn hình máy tính (mặc định)',
+    blurb: 'Lớp học pixel art: bảng ACCA, thầy chỉ bảng, quạt trần quay chậm (mặc định)',
     colors: sapp.theme,
     problems: sapp.problems,
     scene: 'sapp-acca-classroom',
     svg: SCENE_SVG,
     alt: SCENE_ALT,
-    shader: true,
+    shader: 'classroom',
     glass: GLASS,
   },
   {
-    id: 'acca-night',
-    title: 'Lớp học ACCA ban đêm',
-    blurb: 'Lớp học pixel art về đêm, màu giao diện xanh đêm',
-    colors: night.theme,
-    problems: night.problems,
-    colorScheme: 'dark',
-    scene: 'sapp-acca-night',
-    svg: nightOf(SCENE_SVG),
-    alt: NIGHT_ALT,
-    shader: true,
+    id: 'marketing-room',
+    team: 'Marketing',
+    title: 'Phòng Marketing',
+    blurb: 'Phòng Marketing pixel art: bàn chiến dịch, bảng KPI, góc quay nội dung',
+    colors: sapp.theme,
+    problems: sapp.problems,
+    scene: 'sapp-marketing-room',
+    svg: MARKETING_SVG,
+    alt: MARKETING_ALT,
+    shader: 'marketing',
+    glass: GLASS,
+  },
+  {
+    id: 'it-room',
+    team: 'IT',
+    title: 'Phòng IT',
+    blurb: 'Phòng IT pixel art: tủ rack, màn hình giám sát, đèn LED nhấp nháy chậm; sáng ban ngày, tối về đêm',
+    colors: sappIt.theme,
+    problems: sappIt.problems,
+    scene: 'sapp-it-room',
+    svg: IT_SVG,
+    alt: IT_ALT,
+    shader: 'it-room',
     glass: GLASS,
   },
   {
@@ -120,15 +119,7 @@ export const THEMES = [
     scene: 'sapp-dots',
     svg: dotsSvg(),
     alt: DOTS_ALT,
-    shader: false,
     glass: { blur: 10, opacity: 0.72 },
-  },
-  {
-    id: 'sapp-plain',
-    title: 'SAPP cơ bản',
-    blurb: 'Chỉ màu SAPP, không nền',
-    colors: sapp.theme,
-    problems: sapp.problems,
   },
 ]
 

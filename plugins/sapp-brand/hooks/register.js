@@ -9,8 +9,7 @@ const apply = async ($, theme) => {
   // The whole theme in one set: what a set leaves out is gone, so a theme with no
   // scene sets no backdrop and the previous theme's scene is dropped.
   const attributes = { colors: theme.colors }
-  // A theme made for one window kind (the night classroom) says so; the others follow the window.
-  if (theme.colorScheme) attributes.overrideColorScheme = theme.colorScheme
+  // No override of the colour scheme: every theme has a light and a dark look and follows the window.
   if (theme.scene) attributes.backdrop = { scene: theme.scene, glass: theme.glass }
   await $.theme.set(attributes)
 }
@@ -121,14 +120,19 @@ export const register = on => {
     }
     const { Shader, Svg } = $.ui.resolve(e)
     const picture = Svg({ source: theme.svg, alt: theme.alt })
-    if (!theme.shader) {
-      return picture
+    // Each shader file is a literal path in its own call: the engine reads the path
+    // off the source, so a variable would leave the Svg alone.
+    const children = [picture]
+    switch (theme.shader) {
+      case 'classroom':
+        return Shader({ module: './backdrop.shader.ts', children })
+      case 'marketing':
+        return Shader({ module: './marketing.shader.ts', children })
+      case 'it-room':
+        return Shader({ module: './it-room.shader.ts', children })
+      default:
+        return picture
     }
-
-    return Shader({
-      module: './backdrop.shader.ts',
-      children: [picture],
-    })
   })
 
   on('ui.render', { component: 'Spinner' }, ($, e, next) =>
