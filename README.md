@@ -74,6 +74,12 @@ Quản trị viên (gói Team hoặc Enterprise, vai trò Owner) dán đoạn sa
 - Kiểm trên máy thành viên: `/plugin` hiện `sapp-mod` kèm số phiên bản, và `/sapp-theme` chạy được.
 - Tắt: đổi thành `"sapp-mod@sapp": false`.
 
+## Khi sapp-mod không hiện
+
+1. Ngay sau lần cài đầu bằng managed settings, mod có thể chưa nạp ở phiên đầu: thoát hẳn Claude Code (với Desktop, thoát cả biểu tượng ở khay hệ thống) rồi mở lại.
+2. Chạy `claude plugin ...` bằng Claude Code CLI độc lập mà cũ hơn bản trong Desktop có thể làm `sapp-mod` được quản lý bị rơi ra: cập nhật CLI trước (`claude update`) hoặc quản lý plugin ngay trong Desktop. Nếu đã rơi ra, thoát hẳn rồi mở lại Desktop; mod trở lại ở lần khởi động sau.
+3. Nếu vẫn không hiện, xem `/plugin`: `sapp-mod` phải hiện ở phạm vi managed, kèm số phiên bản hiện tại.
+
 ## Đưa hướng dẫn lên claude.ai
 
 Mod chỉ chạy trong Claude Code, không chạy trong chat claude.ai. Chat chỉ nạp được skill, nên chỉ hướng dẫn `sapp-ai-guide` (một tệp `SKILL.md`) đi được. Kho này là public, mà đồng bộ marketplace từ GitHub trong Organization settings chỉ nhận kho private hoặc internal, nên tải zip lên bằng tay (Owner của gói Team hoặc Enterprise):
