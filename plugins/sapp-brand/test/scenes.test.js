@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { BLUEPRINT_ALT, LINK, NOTE_WHITE, NOTE_YELLOW, blueprintSvg, boardSvg } from '../hooks/diagrams.js'
 import { IT_SVG } from '../hooks/scene-it.js'
 import { MARKETING_SVG } from '../hooks/scene-marketing.js'
 import { SCENE_SVG } from '../hooks/scene.js'
@@ -29,13 +28,6 @@ for (const [name, file] of [
   })
 }
 
-test('the two diagram scenes are the same Svg every time', () => {
-  assert.equal(boardSvg(), boardSvg())
-  assert.equal(blueprintSvg(), blueprintSvg())
-  assert.equal(byId('marketing-board').svg, boardSvg())
-  assert.equal(byId('it-blueprint').svg, blueprintSvg())
-})
-
 test('a scene name that does not exist is refused, not built empty', () => {
   assert.throws(() => buildScene('library'))
   assert.deepEqual(Object.keys(SCENES), ['classroom', 'marketing', 'it'])
@@ -43,7 +35,7 @@ test('a scene name that does not exist is refused, not built empty', () => {
 
 // ---- sizes and shape of every new Svg ------------------------------------------------
 
-const NEW = ['acca-classroom', 'marketing-room', 'marketing-board', 'it-room', 'it-blueprint']
+const NEW = ['acca-classroom', 'marketing-room', 'it-room']
 
 test('every scene Svg: under 131072 characters, crispEdges, a viewBox, no width or height, no id that is not hyphenated', () => {
   for (const id of NEW) {
@@ -109,21 +101,13 @@ test('each shader marker is painted above the veil and no other colour of its sc
   assert.ok(dist(rgb('#3DFF7A'), rgb('#40FF7A')) < 0.05)
 })
 
-test('the diagram marks are not near any other colour of their scene', () => {
-  const near = (svg, hex, skip) => [...new Set([...svg.matchAll(/#[0-9A-Fa-f]{6}/g)].map(m => m[0].toUpperCase()))].filter(c => c !== hex.toUpperCase() && !skip.includes(c) && dist(rgb(hex), rgb(c)) <= 0.2)
-
-  assert.deepEqual(near(blueprintSvg(), LINK, []), [])
-  assert.deepEqual(near(boardSvg(), NOTE_YELLOW, []), [])
-  assert.deepEqual(near(boardSvg(), NOTE_WHITE, []), [])
-})
-
 // ---- shaders: where the registry points, and no flashing ------------------------------------
 
 test('every shader file the registry names exists, and register.js names each by a literal path', () => {
   const files = readdirSync(hooks).filter(f => f.endsWith('.shader.ts'))
   const source = readFileSync(new URL('register.js', hooks), 'utf8')
 
-  assert.deepEqual(files.sort(), ['backdrop.shader.ts', 'it-blueprint.shader.ts', 'it-room.shader.ts', 'marketing-board.shader.ts', 'marketing.shader.ts'])
+  assert.deepEqual(files.sort(), ['backdrop.shader.ts', 'it-room.shader.ts', 'marketing.shader.ts'])
   for (const f of files) assert.ok(source.includes(`module: './${f}'`), f)
 })
 
@@ -133,9 +117,7 @@ test('the Backdrop hook plays the shader of each theme over its own Svg, and non
   const want = {
     'sapp-acca-classroom': './backdrop.shader.ts',
     'sapp-marketing-room': './marketing.shader.ts',
-    'sapp-marketing-board': './marketing-board.shader.ts',
     'sapp-it-room': './it-room.shader.ts',
-    'sapp-it-blueprint': './it-blueprint.shader.ts',
   }
   for (const [scene, module] of Object.entries(want)) {
     const out = await draw(scene)
@@ -181,24 +163,16 @@ test('the new titles match in any case, with and without accents, and by number 
     ['Phòng Marketing', 'marketing-room'],
     ['phong marketing', 'marketing-room'],
     ['PHÒNG MARKETING', 'marketing-room'],
-    ['Bảng ý tưởng', 'marketing-board'],
-    ['bang y tuong', 'marketing-board'],
-    ['BẢNG Ý TƯỞNG', 'marketing-board'],
     ['Phòng IT', 'it-room'],
     ['phong it', 'it-room'],
-    ['Bản vẽ mạng', 'it-blueprint'],
-    ['ban ve mang', 'it-blueprint'],
-    ['BẢN VẼ MẠNG', 'it-blueprint'],
     ['2', 'marketing-room'],
-    ['3', 'marketing-board'],
-    ['4', 'it-room'],
-    ['5', 'it-blueprint'],
+    ['3', 'it-room'],
     ['it-room', 'it-room'],
     ['  phong it ', 'it-room'],
   ]
   for (const [text, id] of picks) assert.equal(pickTheme(text)?.id, id, text)
   // Refusals: a near miss, a part of a title and another team's word match nothing.
-  for (const bad of ['phong', 'ban ve', 'marketing', 'phong i', 'bang y tuong 2', '0', '9']) {
+  for (const bad of ['phong', 'ban ve', 'marketing', 'phong i', '0', '9']) {
     assert.equal(pickTheme(bad), undefined, bad)
   }
 })

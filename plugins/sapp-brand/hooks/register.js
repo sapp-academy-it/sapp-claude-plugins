@@ -128,12 +128,8 @@ export const register = on => {
         return Shader({ module: './backdrop.shader.ts', children })
       case 'marketing':
         return Shader({ module: './marketing.shader.ts', children })
-      case 'marketing-board':
-        return Shader({ module: './marketing-board.shader.ts', children })
       case 'it-room':
         return Shader({ module: './it-room.shader.ts', children })
-      case 'it-blueprint':
-        return Shader({ module: './it-blueprint.shader.ts', children })
       default:
         return picture
     }

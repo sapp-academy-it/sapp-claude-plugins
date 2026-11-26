@@ -4,7 +4,6 @@
 // The shape follows Anthropic's theme-examples (Apache-2.0): one table, one row per
 // theme, the id as the key everything else looks up; see README for the attribution.
 import { makeColors } from './make-colors.js'
-import { BLUEPRINT_ALT, BOARD_ALT, blueprintSvg, boardSvg } from './diagrams.js'
 import { IT_ALT, IT_SVG } from './scene-it.js'
 import { MARKETING_ALT, MARKETING_SVG } from './scene-marketing.js'
 import { SCENE_ALT, SCENE_SVG } from './scene.js'
@@ -99,19 +98,6 @@ export const THEMES = [
     glass: GLASS,
   },
   {
-    id: 'marketing-board',
-    team: 'Marketing',
-    title: 'Bảng ý tưởng',
-    blurb: 'Lưới giấy ghi nhớ vàng và trắng như kế hoạch nội dung; cửa sổ tối thì bảng thành ván bần tối',
-    colors: sapp.theme,
-    problems: sapp.problems,
-    scene: 'sapp-marketing-board',
-    svg: boardSvg(),
-    alt: BOARD_ALT,
-    shader: 'marketing-board',
-    glass: GLASS,
-  },
-  {
     id: 'it-room',
     team: 'IT',
     title: 'Phòng IT',
@@ -125,19 +111,6 @@ export const THEMES = [
     glass: GLASS,
   },
   {
-    id: 'it-blueprint',
-    team: 'IT',
-    title: 'Bản vẽ mạng',
-    blurb: 'Sơ đồ mạng nét mảnh, giấy xanh nhạt khi sáng, xanh đậm khi tối; gói tin chạy chậm trên đường link',
-    colors: sappIt.theme,
-    problems: sappIt.problems,
-    scene: 'sapp-it-blueprint',
-    svg: blueprintSvg(),
-    alt: BLUEPRINT_ALT,
-    shader: 'it-blueprint',
-    glass: GLASS,
-  },
-  {
     id: 'sapp-dots',
     title: 'Chấm vàng SAPP',
     blurb: 'Lưới chấm vàng SAPP tĩnh, nhẹ',
@@ -147,13 +120,6 @@ export const THEMES = [
     svg: dotsSvg(),
     alt: DOTS_ALT,
     glass: { blur: 10, opacity: 0.72 },
-  },
-  {
-    id: 'sapp-plain',
-    title: 'SAPP cơ bản',
-    blurb: 'Chỉ màu SAPP, không nền',
-    colors: sapp.theme,
-    problems: sapp.problems,
   },
 ]
 
