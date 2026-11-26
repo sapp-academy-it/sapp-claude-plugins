@@ -5,7 +5,7 @@
 //   marketing -> hooks/scene-marketing.js the marketing room
 //   it        -> hooks/scene-it.js        the IT room (dark)
 //
-//   node plugins/sapp-brand/scripts/build-scene.mjs
+//   node plugins/sapp-mod/scripts/build-scene.mjs
 //
 // No network and nothing but the sprite files is read. Every sprite pixel is one
 // cell of a 192 by 136 grid; objects missing from the sprite set are drawn by code

@@ -111,7 +111,7 @@ export const register = on => {
     if (e.surface !== 'desktop' && e.surface !== 'mobile') {
       return next(e)
     }
-    if (e.props.plugin !== 'sapp-brand') {
+    if (e.props.plugin !== 'sapp-mod') {
       return next(e)
     }
     const theme = THEMES.find(t => t.scene !== undefined && t.scene === e.props.scene)

@@ -113,7 +113,7 @@ test('every shader file the registry names exists, and register.js names each by
 
 test('the Backdrop hook plays the shader of each theme over its own Svg, and none over the dots', async () => {
   const engine = registered()
-  const draw = scene => render(engine, 'Backdrop', { surface: 'desktop', props: { scene, plugin: 'sapp-brand' } })
+  const draw = scene => render(engine, 'Backdrop', { surface: 'desktop', props: { scene, plugin: 'sapp-mod' } })
   const want = {
     'sapp-acca-classroom': './backdrop.shader.ts',
     'sapp-marketing-room': './marketing.shader.ts',
