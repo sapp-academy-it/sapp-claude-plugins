@@ -62,6 +62,15 @@ test('/sapp-help where no pane is drawn answers the whole card as text and start
   // The intro, what is installed, how to switch themes, where to report, and the guide.
   assert.ok(out.text.includes('bộ plugin Claude Code chính thức của SAPP, do phòng công nghệ SAPP quản lý'))
   assert.ok(out.text.includes('## Đang cài: sapp-mod'))
+  // The "Đang cài" section is at most 3 short user-facing lines: what it is, how to switch theme, how to open the guide.
+  const installed = out.text.split('## Đang cài: sapp-mod')[1].split('\n## ')[0].split('\n').filter(line => line.startsWith('- '))
+  assert.deepEqual(installed, [
+    '- Giao diện SAPP cho Claude Code (hiện ở tab Code của Claude Desktop).',
+    '- Đổi giao diện: gõ `/sapp-theme`.',
+    '- Xem hướng dẫn dùng Claude: gõ `/sapp-help` (trang này).',
+  ])
+  // No implementation detail in the card.
+  for (const detail of ['credit', 'SAPP đang xử lý', 'Backdrop', '$.store', 'session.start']) assert.equal(out.text.includes(detail), false, detail)
   assert.ok(out.text.includes('`/sapp-theme`'))
   assert.ok(out.text.includes('https://github.com/sapp-academy-it/sapp-claude-plugins/issues'))
   assert.ok(out.text.includes('# Dùng Claude hiệu quả – 5 quy tắc: ASK – CONTEXT – VERIFY – OUTPUT – TEST'))

@@ -103,6 +103,19 @@ const showHelp = async $ => {
   return { text: HELP_MARKDOWN, isTextDisplayOnly: true }
 }
 
+// The credit line is set at session.start, but on the Desktop Code tab no status row is attached
+// that early and the call has no effect. So every Backdrop and Spinner render that arrives with a
+// surface sets it again (a repeat call replaces the status with itself, so there is no once-flag
+// to spend on a render that is still too early). A status that throws never touches the render.
+const creditAgain = ($, e) => {
+  if (e.surface == null) return
+  try {
+    $.ui.status(CREDIT)
+  } catch {
+    // The line stays as it was.
+  }
+}
+
 export const register = on => {
   const state = { applied: undefined }
 
@@ -164,6 +177,7 @@ export const register = on => {
   })
 
   on('ui.render', { component: 'Backdrop' }, ($, e, next) => {
+    creditAgain($, e)
     if (e.surface !== 'desktop' && e.surface !== 'mobile') {
       return next(e)
     }
@@ -191,14 +205,15 @@ export const register = on => {
     }
   })
 
-  on('ui.render', { component: 'Spinner' }, ($, e, next) =>
-    next({
+  on('ui.render', { component: 'Spinner' }, ($, e, next) => {
+    creditAgain($, e)
+    return next({
       ...e,
       props: {
         ...e.props,
         word: SPINNER_TEXT,
         suffix: '…',
       },
-    }),
-  )
+    })
+  })
 }

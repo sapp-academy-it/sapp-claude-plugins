@@ -13,14 +13,9 @@ const INTRO = `# Trợ giúp SAPP
 
 ## Đang cài: sapp-mod
 
-- Giao diện SAPP: bốn giao diện, màu sáng và tối (nền và màu chỉ hiện ở tab Code của ứng dụng Desktop và trên mobile).
-- Dòng credit "Tạo bởi SAPP IT Department, © 2026" dưới ô nhập.
-- Chữ "SAPP đang xử lý…" khi Claude đang làm việc.
-- Lệnh \`/sapp-help\` (trang này) và hướng dẫn dùng Claude ở dưới. Hướng dẫn cũng có dạng skill: hỏi Claude "dùng Claude sao cho hiệu quả?" thì Claude đọc đúng nội dung này.
-
-## Đổi giao diện
-
-Gõ \`/sapp-theme\` để xem danh sách, \`/sapp-theme 2\` hoặc \`/sapp-theme it-room\` để đổi. Lựa chọn được lưu cho các phiên sau.
+- Giao diện SAPP cho Claude Code (hiện ở tab Code của Claude Desktop).
+- Đổi giao diện: gõ \`/sapp-theme\`.
+- Xem hướng dẫn dùng Claude: gõ \`/sapp-help\` (trang này).
 
 ## Báo vấn đề
 
