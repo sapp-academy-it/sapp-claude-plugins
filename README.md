@@ -19,7 +19,9 @@ Tạo bởi SAPP IT Department, © 2026.
 
 Ảnh trên là khung hình tĩnh của từng giao diện (chưa có chuyển động).
 
-**Giao diện mặc định là tắt:** cài xong, Claude Code giữ giao diện của nó cho tới khi bạn bật bằng `/sapp-theme on`. Dòng credit và chữ "SAPP đang xử lý…" luôn có, không phụ thuộc giao diện.
+**Chữ khi Claude đang xử lý** (mặc định "SAPP đang xử lý…") đổi được bằng `/sapp-spinner`, theo phạm vi: phiên này (mặc định), `local` (dự án này, riêng bạn; dự án là thư mục gốc của kho git, nếu không có thì thư mục phiên bắt đầu) hoặc `user` (mọi dự án của bạn); phạm vi hẹp hơn thắng. `off` trả về chữ của Claude Code, `reset` xoá giá trị ở phạm vi đó.
+
+**Giao diện mặc định là tắt:** cài xong, Claude Code giữ giao diện của nó cho tới khi bạn bật bằng `/sapp-theme on`. Dòng credit luôn có, không phụ thuộc giao diện; chữ khi Claude đang xử lý cũng tách riêng, đổi bằng `/sapp-spinner`.
 
 Nơi hiện:
 
@@ -34,7 +36,9 @@ Cần Claude Code từ **2.1.330** trở lên.
 /sapp-theme                 # liệt kê các giao diện, cho biết đang bật hay tắt
 /sapp-theme on              # bật giao diện (giao diện đã chọn gần nhất, mặc định Lớp học ACCA)
 /sapp-theme it-room         # bật và đổi theo mã, theo số trong danh sách hoặc theo tên
-/sapp-theme off             # tắt giao diện SAPP (giữ dòng credit và chữ "SAPP đang xử lý…")
+/sapp-theme off             # tắt giao diện SAPP (dòng credit vẫn giữ; chữ khi xử lý đổi riêng bằng /sapp-spinner)
+/sapp-spinner Đang làm      # đổi chữ khi Claude đang xử lý, chỉ cho phiên này
+/sapp-spinner --scope user Đang làm   # --scope local (dự án này) hoặc user (mọi dự án); thêm off hoặc reset
 /sapp-help                  # trang trợ giúp SAPP và hướng dẫn "Dùng Claude hiệu quả"
 ```
 

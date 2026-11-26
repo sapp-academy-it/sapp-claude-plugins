@@ -307,7 +307,12 @@ test('the credit line survives a build where $.theme.set throws, and it is set f
   assert.ok(result.passed)
   assert.deepEqual(
     engine.calls.map(c => c.path),
-    ['ui.status', 'store.get', 'store.get', 'theme.set', 'command.register', 'command.register', 'store.get', 'store.set', 'ui.toast'],
+    [
+      'ui.status', 'store.get', 'store.get', 'theme.set',
+      'store.get', 'store.get',
+      'command.register', 'command.register', 'command.register',
+      'store.get', 'store.set', 'ui.toast',
+    ],
   )
   assert.deepEqual(engine.calls[0].args, ['Tạo bởi SAPP IT Department, © 2026'])
 })
@@ -423,13 +428,14 @@ test('the manifest name, the marketplace entry and the Backdrop guard all say sa
 
 // ---- what the mod hooks and calls -------------------------------------------------------
 
-test('register() hooks exactly session.start, the two commands, and the Backdrop, Spinner and Pane renders', () => {
+test('register() hooks exactly session.start, the three commands, and the Backdrop, Spinner and Pane renders', () => {
   const engine = registered()
 
   assert.deepEqual(
     engine.hooks.map(h => h.event + JSON.stringify(h.matcher)).sort(),
     [
       'command.run{"command":"sapp-help"}',
+      'command.run{"command":"sapp-spinner"}',
       'command.run{"command":"sapp-theme"}',
       'session.start' + 'null',
       'ui.render{"component":"Backdrop"}',

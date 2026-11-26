@@ -45,12 +45,12 @@ const runHelp = (engine, $) => find(engine, 'command.run', { command: 'sapp-help
 
 // ---- the command --------------------------------------------------------------------------
 
-test('a session start registers /sapp-help beside /sapp-theme', async () => {
+test('a session start registers /sapp-help and /sapp-spinner beside /sapp-theme', async () => {
   const engine = registered()
   await startSession(engine)
 
   const names = engine.calls.filter(c => c.path === 'command.register').map(c => c.args[0].name)
-  assert.deepEqual(names, ['sapp-theme', 'sapp-help'])
+  assert.deepEqual(names, ['sapp-theme', 'sapp-spinner', 'sapp-help'])
 })
 
 test('/sapp-help where no pane is drawn answers the whole card as text and starts no model turn', async () => {
@@ -62,11 +62,12 @@ test('/sapp-help where no pane is drawn answers the whole card as text and start
   // The intro, what is installed, how to switch themes, where to report, and the guide.
   assert.ok(out.text.includes('bộ plugin Claude Code chính thức của SAPP, do phòng công nghệ SAPP quản lý'))
   assert.ok(out.text.includes('## Đang cài: sapp-mod'))
-  // The "Đang cài" section is at most 3 short user-facing lines: what it is, how to switch theme, how to open the guide.
+  // The "Đang cài" section is at most 4 short user-facing lines: what it is, the theme, the spinner word, how to open the guide.
   const installed = out.text.split('## Đang cài: sapp-mod')[1].split('\n## ')[0].split('\n').filter(line => line.startsWith('- '))
   assert.deepEqual(installed, [
     '- Giao diện SAPP cho Claude Code (hiện ở tab Code của Claude Desktop).',
     '- Giao diện SAPP mặc định tắt: bật bằng `/sapp-theme on`, đổi bằng `/sapp-theme`.',
+    '- Đổi chữ khi Claude đang xử lý: gõ `/sapp-spinner <chữ>`.',
     '- Xem hướng dẫn dùng Claude: gõ `/sapp-help` (trang này).',
   ])
   // No implementation detail in the card.
