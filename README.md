@@ -43,7 +43,35 @@ Lựa chọn được lưu trong kho riêng của mod (`$.store`, tệp JSON dư
 
 Chỉ tab Code của ứng dụng Desktop (và mobile) vẽ nền và màu giao diện. Ở terminal và editor, `/sapp-theme` vẫn chạy và lưu lựa chọn nhưng không có gì để vẽ; dòng credit và chữ "SAPP đang xử lý…" vẫn hiện.
 
-Mod không làm gì khác: không đăng ký hook nào đọc hay đổi hành động của Claude (`tool.call`, `tool.check`, `prompt.submit`...), không gọi mạng, không chạy tiến trình, không đọc hay ghi tệp ngoài kho `$.store` của chính nó. Các sự kiện nó nghe: `session.start`, `command.run` của `/sapp-theme`, và `ui.render` của Backdrop và Spinner. Các lệnh `$` nó gọi: `$.theme.set`, `$.store.get`, `$.store.set`, `$.command.register`, `$.ui.status`, `$.ui.resolve`. Nền được giữ nhạt để chữ hội thoại vẫn dễ đọc ở cả hai chế độ; cảnh không nhấp nháy.
+Mod không làm gì khác: không đăng ký hook nào đọc hay đổi hành động của Claude (`tool.call`, `tool.check`, `prompt.submit`...), không gọi mạng, không chạy tiến trình, không đọc hay ghi tệp ngoài kho `$.store` của chính nó. Các sự kiện nó nghe: `session.start`, `command.run` của `/sapp-theme` và `/sapp-help`, `ui.render` của Backdrop, Spinner và Pane (chỉ khung của chính nó), và `ui.tip`. Các lệnh `$` nó gọi: `$.theme.set`, `$.store.get`, `$.store.set`, `$.command.register`, `$.ui.status`, `$.ui.resolve`, cùng ba lệnh thêm cho `/sapp-help`: `$.ui.open`, `$.ui.close`, `$.ui.toast`. Các dòng `hooks:` và `calls:` của `claude plugin validate plugins/sapp-mod` được ghim trong CI; thêm sự kiện hay lệnh `$` thì phải sửa dòng ghim ở `.github/workflows/ci.yml` và đoạn này. Nền được giữ nhạt để chữ hội thoại vẫn dễ đọc ở cả hai chế độ; cảnh không nhấp nháy.
+
+## Trợ giúp và hướng dẫn dùng Claude
+
+Gõ `/sapp-help` để xem trang trợ giúp của SAPP, không tốn lượt nào của Claude. Trang gồm: lời giới thiệu (bộ plugin Claude Code chính thức của SAPP, do phòng công nghệ SAPP quản lý), những gì `sapp-mod` đã cài, cách đổi giao diện bằng `/sapp-theme`, nơi báo vấn đề (issues của kho này, không có liên hệ cá nhân) và hướng dẫn "Dùng Claude hiệu quả – 5 quy tắc: ASK – CONTEXT – VERIFY – OUTPUT – TEST". Nơi nào vẽ được khung (pane) thì trang mở thành khung, nhấn Esc hoặc nút Đóng để đóng; nơi nào không thì cùng nội dung hiện thành chữ trong hội thoại. Lần đầu sau khi cài, mod hiện đúng một thông báo ngắn trỏ tới `/sapp-help` (cờ nhớ trong `$.store`, khóa `help-toast-shown`, không bao giờ hiện lại), và thỉnh thoảng (cứ 4 gợi ý dưới chữ đang xử lý thì có 1) một gợi ý cùng nội dung xen với gợi ý của Claude Code.
+
+| Phần | Nơi hiện |
+| :-- | :-- |
+| Khung trợ giúp mở bởi `/sapp-help` (`$.ui.open`, vẽ ở render site `Pane`, phần tử `Markdown`) | Terminal, tab Code của Desktop, VS Code (bảng "Render sites" của mods reference); chỗ nào không đặt được khung thì dùng chữ |
+| Chữ trả lời của `/sapp-help` khi không có khung | Hội thoại, ở mọi nơi chạy mod (`CommandOutput`: terminal và Desktop) |
+| Gợi ý `ui.tip` | Dưới chữ đang xử lý của terminal. Docs chỉ nói terminal; Desktop chưa xác nhận |
+| Thông báo `$.ui.toast` một lần | Docs không ghi từng nơi vẽ; chưa kiểm trên Desktop |
+
+Hướng dẫn nằm ở một nguồn duy nhất: `plugins/sapp-mod/skills/sapp-claude-guide/SKILL.md`. Nó vừa là skill của plugin (Claude tự nạp khi người dùng hỏi cách dùng Claude hay quy tắc dùng Claude của SAPP), vừa là nội dung của khung `/sapp-help`. Mod không đọc được tệp, nên `npm run build:guide` chép phần thân của SKILL.md vào `plugins/sapp-mod/hooks/guide.js`; sửa SKILL.md xong phải chạy lệnh này rồi commit cả hai, và một bài test fail khi hai bản lệch nhau. Hướng dẫn chỉ có lời khuyên chung, không có dữ liệu, tên hay địa chỉ nội bộ.
+
+### Đưa hướng dẫn lên claude.ai (chat web và Desktop chat)
+
+Mod chỉ chạy ở Claude Code (terminal, tab Code của Desktop, VS Code), không chạy trong chat của claude.ai; chat chỉ nạp skill, không nạp hook hay mod. Vì vậy `/sapp-help`, thông báo và gợi ý không có ở chat; chỉ SKILL.md đi được.
+
+Kho này là public, mà đồng bộ marketplace từ GitHub trong Organization settings chỉ nhận kho private hoặc internal ("On github.com, your repository must be private or internal"), nên không dùng cách đồng bộ. Cách làm cho kho public, bằng tay, do Owner của tổ chức (Team hoặc Enterprise):
+
+1. Nén thư mục skill thành zip, tên thư mục trùng tên skill: `cd plugins/sapp-mod/skills && zip -r sapp-claude-guide.zip sapp-claude-guide` (trong zip có `sapp-claude-guide/SKILL.md`).
+2. Vào Organization settings > Plugins & skills > Policy, bật Skills và code execution and file creation nếu chưa bật.
+3. Vào tab Inventory, chọn Add > Upload a skill, chọn tệp zip. Skill vào Inventory, rồi đặt Default access (Available to install, Installed by default hoặc Required) cho thành viên.
+4. Mỗi lần sửa SKILL.md: tạo zip mới, mở trang của skill trong Inventory, chọn Upload new version.
+
+Không phải Owner thì tự dùng: Customize > Skills > Create skill > Upload a skill, chọn cùng tệp zip (chỉ cho tài khoản của mình, và khi tổ chức không tắt "User-created skills"). Đừng tải cả plugin `sapp-mod` lên bằng Upload a plugin: phần hook và mod bị bỏ qua trong chat, và việc kiểm tra mod trong zip plugin chưa xác nhận.
+
+Nguồn: [Manage plugins for your organization](https://claude.com/docs/plugins/admin.md), [Sync your organization's plugins from a repository](https://claude.com/docs/plugins/org-sync.md), [Plugin feature support across platforms](https://claude.com/docs/plugins/platform-support.md), [Mods overview](https://code.claude.com/docs/en/plugins/mods/overview.md).
 
 ### Màu
 
@@ -98,6 +126,7 @@ Cấu trúc theo [Manage mods for your organization](https://code.claude.com/doc
 npm test                                  # node --test, không cần mạng
 claude plugin validate .                  # marketplace
 claude plugin validate plugins/sapp-mod   # plugin
+npm run build:guide                       # chép SKILL.md vào hooks/guide.js
 npm run build:scene                       # sinh lại ba cảnh pixel (hooks/scene*.js) từ sprite
 npm run preview                           # dựng lại preview.png (cần rsvg-convert và ImageMagick 7)
 ```

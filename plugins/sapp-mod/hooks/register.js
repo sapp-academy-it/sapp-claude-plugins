@@ -1,3 +1,4 @@
+import { HELP_MARKDOWN, HELP_TIP, HELP_TIP_ID, HELP_TOAST, PANE_ID, TIP_EVERY, TOAST_KEY } from './help.js'
 import { THEMES, pickTheme, themeOrDefault } from './themes.js'
 
 export const CREDIT = 'Tạo bởi SAPP IT Department, © 2026'
@@ -72,8 +73,35 @@ const answer = async ($, e, state) => {
 // A long unknown name is cut before it is echoed.
 const shown = text => (text.length > 64 ? `${text.slice(0, 64)}…` : text)
 
+// The pointer to /sapp-help shows once per install: the flag is stored before the toast,
+// so a store that cannot write (or read) never makes the toast come back.
+const pointToHelp = async $ => {
+  try {
+    if (await $.store.get(TOAST_KEY)) return
+    await $.store.set(TOAST_KEY, true)
+    $.ui.toast(HELP_TOAST)
+  } catch {
+    // No store or no toast on this build: say nothing.
+  }
+}
+
+// /sapp-help: the card in a pane where the surface draws one, the same text in the
+// transcript where it does not. Nothing here starts a model turn.
+const showHelp = async $ => {
+  try {
+    const opened = await $.ui.open({ id: PANE_ID, title: 'Trợ giúp SAPP', focus: true, closeOnEscape: true })
+    if (opened?.isPlaced === true) {
+      return { text: 'Đã mở trang trợ giúp SAPP. Nhấn Esc để đóng.', isTextDisplayOnly: true }
+    }
+    await $.ui.close({ id: PANE_ID })
+  } catch {
+    // No pane on this build: the text below.
+  }
+  return { text: HELP_MARKDOWN, isTextDisplayOnly: true }
+}
+
 export const register = on => {
-  const state = { applied: undefined }
+  const state = { applied: undefined, tips: 0 }
 
   on('session.start', async ($, e, next) => {
     // The credit line first: an older Claude Code without $.theme.set still shows it.
@@ -99,6 +127,15 @@ export const register = on => {
     } catch {
       // No command on this build.
     }
+    try {
+      await $.command.register({
+        name: 'sapp-help',
+        description: 'Trợ giúp SAPP: các tính năng đã cài, cách đổi giao diện và hướng dẫn dùng Claude hiệu quả.',
+      })
+    } catch {
+      // No command on this build.
+    }
+    await pointToHelp($)
 
     return next(e)
   })
@@ -106,6 +143,29 @@ export const register = on => {
   on('command.run', { command: 'sapp-theme' }, ($, e) =>
     answer($, e, state).catch(() => ({ text: 'Lệnh /sapp-theme gặp lỗi, giao diện không đổi.', isTextDisplayOnly: true })),
   )
+
+  on('command.run', { command: 'sapp-help' }, $ =>
+    showHelp($).catch(() => ({ text: HELP_MARKDOWN, isTextDisplayOnly: true })),
+  )
+
+  on('ui.render', { component: 'Pane' }, ($, e, next) => {
+    if (e.requestId !== PANE_ID) return next(e)
+    const { Box, Markdown, Button } = $.ui.resolve(e)
+    return Box({
+      flexDirection: 'column',
+      children: [
+        Markdown({ text: HELP_MARKDOWN }),
+        Button({ key: 'close', label: 'Đóng', role: 'dismiss', onPress: () => $.ui.close({ id: PANE_ID }) }),
+      ],
+    })
+  })
+
+  // One tip in TIP_EVERY is ours; the rest are the engine's own choice, untouched.
+  on('ui.tip', ($, e, next) => {
+    state.tips += 1
+    if (state.tips % TIP_EVERY !== 0) return next(e)
+    return { id: HELP_TIP_ID, text: HELP_TIP, label: 'SAPP' }
+  })
 
   on('ui.render', { component: 'Backdrop' }, ($, e, next) => {
     if (e.surface !== 'desktop' && e.surface !== 'mobile') {
