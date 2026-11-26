@@ -2,7 +2,9 @@
 import { register } from '../hooks/register.js'
 
 // `store` is a fake $.store: a Map the mod reads and writes through $.store.get/set.
-export function makeEngine({ throwOn, store = new Map() } = {}) {
+// `session` is the fake $.session: change `session.id` or `session.root` to be another session or folder;
+// `session.vcsRoot` is what $.vcs.detect answers as the repository root (none when undefined).
+export function makeEngine({ throwOn, store = new Map(), session = { id: 'session-1', root: '/work/project-a', vcsRoot: undefined } } = {}) {
   const hooks = []
   const calls = []
 
@@ -18,6 +20,9 @@ export function makeEngine({ throwOn, store = new Map() } = {}) {
       if (name === 'theme.set') return { isDrawn: true }
       if (name === 'store.get') return store.get(args[0])
       if (name === 'store.set') return void store.set(args[0], args[1])
+      if (name === 'session.id') return session.id
+      if (name === 'session.root') return session.root
+      if (name === 'vcs.detect') return session.vcsRoot === undefined ? {} : { root: session.vcsRoot }
       return undefined
     }
     return new Proxy(target, { get: (_, key) => record([...path, String(key)]) })
@@ -54,7 +59,7 @@ export function makeEngine({ throwOn, store = new Map() } = {}) {
     },
   )
 
-  return { hooks, calls, on, $, store }
+  return { hooks, calls, on, $, store, session }
 }
 
 export function registered(registerFn = register, options) {

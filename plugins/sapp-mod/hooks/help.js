@@ -15,6 +15,7 @@ const INTRO = `# Trợ giúp SAPP
 
 - Giao diện SAPP cho Claude Code (hiện ở tab Code của Claude Desktop).
 - Giao diện SAPP mặc định tắt: bật bằng \`/sapp-theme on\`, đổi bằng \`/sapp-theme\`.
+- Đổi chữ khi Claude đang xử lý: gõ \`/sapp-spinner <chữ>\`.
 - Xem hướng dẫn dùng Claude: gõ \`/sapp-help\` (trang này).
 
 ## Báo vấn đề

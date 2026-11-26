@@ -1,4 +1,5 @@
 import { HELP_MARKDOWN, HELP_TOAST, PANE_ID, TOAST_KEY } from './help.js'
+import { USAGE, okValue, parseArgs, resolve, scopeName } from './spinner.js'
 import { THEMES, pickTheme, plain, themeOrDefault } from './themes.js'
 
 export const CREDIT = 'Tạo bởi SAPP IT Department, © 2026'
@@ -8,6 +9,9 @@ export const STORE_KEY = 'theme'
 // Whether the person turned the SAPP theme off (`/sapp-theme off`). The chosen id stays in STORE_KEY,
 // so `/sapp-theme on` brings the last choice back.
 export const OFF_KEY = 'theme-off'
+// The stored spinner words: `spinner-user` is one value, `spinner-local` maps a project folder to a value.
+export const SPINNER_USER_KEY = 'spinner-user'
+export const SPINNER_LOCAL_KEY = 'spinner-local'
 const OFF_WORDS = ['off', 'tat']
 const ON_WORDS = ['on', 'bat']
 
@@ -91,7 +95,7 @@ const turnOff = async ($, state) => {
   }
   state.off = true
   state.applied = undefined
-  const kept = 'Dòng credit và chữ "SAPP đang xử lý…" vẫn giữ vì không thuộc giao diện. Bật lại bằng /sapp-theme on hoặc /sapp-theme <số, mã hoặc tên>.'
+  const kept = 'Dòng credit vẫn giữ vì không thuộc giao diện; chữ khi Claude đang xử lý cũng tách riêng, đổi bằng /sapp-spinner. Bật lại bằng /sapp-theme on hoặc /sapp-theme <số, mã hoặc tên>.'
   try {
     await $.store.set(OFF_KEY, true)
   } catch {
@@ -170,8 +174,109 @@ const creditAgain = ($, e) => {
   }
 }
 
+const readStored = async ($, key) => {
+  try {
+    return await $.store.get(key)
+  } catch {
+    return undefined
+  }
+}
+
+const readLocal = async $ => {
+  const map = await readStored($, SPINNER_LOCAL_KEY)
+  return map != null && typeof map === 'object' && !Array.isArray(map) ? map : {}
+}
+
+// The session id and the project, where the engine answers (a session of its own each, so one
+// session's word is not seen by another that shares the process). The project is the repository root
+// of the session's root, so a session in projA/sub sees projA's word; with no repository it is the
+// session root itself (where the session started, or where /cd took it).
+const whereAmI = async $ => {
+  let id
+  let cwd
+  try {
+    id = await $.session.id()
+  } catch {
+    // No id on this build.
+  }
+  try {
+    cwd = await $.session.root()
+  } catch {
+    // No root on this build.
+  }
+  if (cwd !== undefined) {
+    try {
+      const found = await $.vcs.detect({ path: cwd })
+      if (typeof found?.root === 'string' && found.root !== '') cwd = found.root
+    } catch {
+      // No repository, or no vcs on this build: the session root stands.
+    }
+  }
+  return { id, cwd }
+}
+
+const localValue = (state, cwd) => (cwd !== undefined && Object.hasOwn(state.local, cwd) ? okValue(state.local[cwd]) : undefined)
+
+// The word in force: session, then local, then user, else the default. The session id and the folder
+// are asked only when a session or local value exists, so the common render costs no call.
+const spinnerNow = async ($, state) => {
+  const needsWhere = state.sessions.size > 0 || Object.keys(state.local).length > 0
+  const { id, cwd } = needsWhere ? await whereAmI($) : {}
+  return resolve({ session: id === undefined ? undefined : state.sessions.get(id), local: localValue(state, cwd), user: state.user })
+}
+
+const shownWord = word => `"${word}…"`
+const nowText = now =>
+  now.value?.off === true
+    ? `Chữ đang xử lý: mặc định của Claude Code (SAPP đã tắt chữ ở phạm vi ${scopeName(now.scope)}).`
+    : `Chữ đang xử lý: ${shownWord(now.value?.text ?? SPINNER_TEXT)}, theo phạm vi ${scopeName(now.scope)}.`
+
+// /sapp-spinner: set, turn off or reset the spinner word at one scope. Nothing starts a model turn.
+const spinnerCommand = async ($, e, state) => {
+  const parsed = parseArgs(e.args)
+  if (parsed.error) return parsed.error
+  // Read the stored scopes fresh: another session may have changed them.
+  state.user = okValue(await readStored($, SPINNER_USER_KEY))
+  state.local = await readLocal($)
+  const { id, cwd } = await whereAmI($)
+  const { scope, action } = parsed
+  if (action === 'show') return `${nowText(resolve({ session: id === undefined ? undefined : state.sessions.get(id), local: localValue(state, cwd), user: state.user }))}\n${USAGE}`
+  if (scope === 'session' && id === undefined) return 'Không lấy được mã phiên trên bản Claude Code này, nên không đặt được chữ cho phiên.'
+  if (scope === 'local' && cwd === undefined) return 'Không biết dự án của phiên này trên bản Claude Code này, nên không đặt được chữ cho dự án.'
+
+  const value = action === 'set' ? { text: parsed.word } : action === 'off' ? { off: true } : undefined
+  try {
+    if (scope === 'user') {
+      await $.store.set(SPINNER_USER_KEY, value ?? null)
+      state.user = value
+    } else if (scope === 'local') {
+      const map = { ...state.local }
+      if (value) map[cwd] = value
+      else delete map[cwd]
+      await $.store.set(SPINNER_LOCAL_KEY, map)
+      state.local = map
+    } else if (value) {
+      state.sessions.set(id, value)
+    } else {
+      state.sessions.delete(id)
+    }
+  } catch {
+    return 'Không lưu được chữ đang xử lý, nên chưa đổi gì.'
+  }
+  const now = resolve({ session: id === undefined ? undefined : state.sessions.get(id), local: localValue(state, cwd), user: state.user })
+  const where = scopeName(scope)
+  const head =
+    action === 'set'
+      ? `Đã đặt chữ đang xử lý ${shownWord(parsed.word)} cho ${where}.`
+      : action === 'off'
+        ? `Đã tắt chữ SAPP cho ${where}: Claude Code dùng chữ mặc định của nó.`
+        : `Đã xoá giá trị ở ${where}.`
+  const kept = scope === 'session' ? ' Phiên mới trở về giá trị đã lưu.' : ''
+  return `${head}${kept}\n${nowText(now)}`
+}
+
 export const register = on => {
-  const state = { applied: undefined, off: undefined }
+  const state = { applied: undefined, off: undefined, sessions: new Map(), user: undefined, local: {} }
 
   on('session.start', async ($, e, next) => {
     // The credit line first: an older Claude Code without $.theme.set still shows it.
@@ -191,12 +296,28 @@ export const register = on => {
     } catch {
       // No theme on this build; the rest of the mod still works.
     }
+    // The stored spinner words, read once here so a render never waits for the store.
+    try {
+      state.user = okValue(await readStored($, SPINNER_USER_KEY))
+      state.local = await readLocal($)
+    } catch {
+      // The default word stands.
+    }
     // Last: a refused command name must not cost the session its theme.
     try {
       await $.command.register({
         name: 'sapp-theme',
         description: 'Đổi giao diện SAPP, hoặc tắt bằng off và bật lại bằng on. Không có tham số thì liệt kê các giao diện.',
         argumentHint: '[số | mã | tên | off | on]',
+      })
+    } catch {
+      // No command on this build.
+    }
+    try {
+      await $.command.register({
+        name: 'sapp-spinner',
+        description: 'Đổi chữ khi Claude đang xử lý, theo phạm vi: phiên này, local (dự án này) hoặc user. Không có tham số thì cho biết chữ đang dùng.',
+        argumentHint: '[--scope local|user] [chữ | off | reset]',
       })
     } catch {
       // No command on this build.
@@ -216,6 +337,12 @@ export const register = on => {
 
   on('command.run', { command: 'sapp-theme' }, ($, e) =>
     answer($, e, state).catch(() => ({ text: 'Lệnh /sapp-theme gặp lỗi, giao diện không đổi.', isTextDisplayOnly: true })),
+  )
+
+  on('command.run', { command: 'sapp-spinner' }, ($, e) =>
+    spinnerCommand($, e, state)
+      .then(text => ({ text, isTextDisplayOnly: true }))
+      .catch(() => ({ text: 'Lệnh /sapp-spinner gặp lỗi, chữ không đổi.', isTextDisplayOnly: true })),
   )
 
   on('command.run', { command: 'sapp-help' }, $ =>
@@ -265,13 +392,21 @@ export const register = on => {
     }
   })
 
-  on('ui.render', { component: 'Spinner' }, ($, e, next) => {
+  on('ui.render', { component: 'Spinner' }, async ($, e, next) => {
     creditAgain($, e)
+    let now
+    try {
+      now = await spinnerNow($, state)
+    } catch {
+      now = { scope: 'default', value: undefined }
+    }
+    // off: Claude Code's own spinner words come back, untouched.
+    if (now.value?.off === true) return next(e)
     return next({
       ...e,
       props: {
         ...e.props,
-        word: SPINNER_TEXT,
+        word: now.value?.text ?? SPINNER_TEXT,
         suffix: '…',
       },
     })

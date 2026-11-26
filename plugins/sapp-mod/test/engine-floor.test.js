@@ -13,6 +13,7 @@ export const OLDEST_ENGINE = '2.1.330'
 export const EVENTS_ON_OLDEST = ['session.start', 'command.run', 'ui.render']
 // `$` calls the module makes. Each is behind try/catch, so a call an engine lacks costs that feature
 // only, never the module. Not proven at run time on 2.1.330 beyond a load: ui.open, ui.close, ui.toast.
+// session.id, session.root and vcs.detect are proven: a probe plugin on 2.1.330 and 2.1.332 got a session id, a root and a repository root back.
 // theme.clear is proven: a probe plugin on 2.1.330 and 2.1.332 got `{ isDrawn: false, reason: ... }` back.
 export const CALLS_ON_OLDEST = [
   'command.register',
@@ -23,8 +24,11 @@ export const CALLS_ON_OLDEST = [
   'ui.close',
   'ui.open',
   'ui.resolve',
+  'session.id',
+  'session.root',
   'ui.status',
   'ui.toast',
+  'vcs.detect',
 ]
 
 const notAllowed = (names, allowed) => [...new Set(names)].filter(name => !allowed.includes(name)).sort()
@@ -36,6 +40,8 @@ async function eventsAndCalls(registerFn) {
   await startSession(engine)
   await runCommand(engine, 'sapp-theme', 'it-room')
   await runCommand(engine, 'sapp-theme', 'off')
+  await runCommand(engine, 'sapp-spinner', '--scope local Chữ thử')
+  await runCommand(engine, 'sapp-spinner', '--scope user Chữ thử')
   await runCommand(engine, 'sapp-help', '')
   if (find(engine, 'command.run', { command: 'extra' })) await runCommand(engine, 'extra', '')
   const pane = await render(engine, 'Pane', { surface: 'desktop', requestId: 'sapp-help', props: {} })
@@ -58,6 +64,7 @@ test(`every $ call the module makes is on the list for ${OLDEST_ENGINE}`, async 
   assert.deepEqual(notAllowed(calls, CALLS_ON_OLDEST), [])
   // The run reached the calls: a driver that stopped early would pass for nothing.
   assert.ok(calls.includes('ui.toast') && calls.includes('ui.open') && calls.includes('theme.set') && calls.includes('theme.clear'))
+  assert.ok(calls.includes('session.id') && calls.includes('session.root') && calls.includes('vcs.detect'))
 })
 
 test('the guard goes red on a module that hooks ui.tip or calls a $ method not on the list (control)', async () => {

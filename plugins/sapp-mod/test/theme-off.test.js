@@ -18,7 +18,7 @@ test('/sapp-theme off (and tắt) clears the theme, stores the choice, and says 
     assert.equal(store.get(OFF_KEY), true, word)
     assert.equal(out.isTextDisplayOnly, true)
     assert.ok(out.text.startsWith('Đã tắt giao diện SAPP'), out.text)
-    assert.ok(out.text.includes('Dòng credit và chữ "SAPP đang xử lý…" vẫn giữ'), out.text)
+    assert.ok(out.text.includes('Dòng credit vẫn giữ vì không thuộc giao diện; chữ khi Claude đang xử lý cũng tách riêng, đổi bằng /sapp-spinner.'), out.text)
   }
 })
 
