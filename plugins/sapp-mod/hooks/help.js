@@ -14,7 +14,7 @@ const INTRO = `# Trợ giúp SAPP
 ## Đang cài: sapp-mod
 
 - Giao diện SAPP cho Claude Code (hiện ở tab Code của Claude Desktop).
-- Đổi giao diện: gõ \`/sapp-theme\`; tắt: \`/sapp-theme off\`.
+- Giao diện SAPP mặc định tắt: bật bằng \`/sapp-theme on\`, đổi bằng \`/sapp-theme\`.
 - Xem hướng dẫn dùng Claude: gõ \`/sapp-help\` (trang này).
 
 ## Báo vấn đề

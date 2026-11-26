@@ -28,24 +28,33 @@ const stored = async $ => {
   }
 }
 
+// The SAPP theme is OFF by default. What the store says decides:
+//  - `theme-off` true: off. `theme-off` false: on, with the stored theme (or the default theme).
+//  - no `theme-off` key and a stored `theme`: a person who picked a theme before the default became
+//    off. Their theme stays on, so nobody who chose a theme loses it.
+//  - no `theme-off` key and no stored `theme` (a fresh install), or a store that cannot be read: off.
 const isOff = async $ => {
   try {
-    return (await $.store.get(OFF_KEY)) === true
+    const off = await $.store.get(OFF_KEY)
+    if (off === true) return true
+    if (off === false) return false
+    return (await $.store.get(STORE_KEY)) == null
   } catch {
-    return false
+    return true
   }
 }
 
-// While the theme is off no row is marked [đang dùng]; `current` is then the last chosen theme.
-const listText = (current, off = false) =>
+// While the theme is off no row is marked [đang dùng]; `current` is then the last chosen theme,
+// named only when there is one (`hasChoice`).
+const listText = (current, off = false, hasChoice = true) =>
   [
     off
-      ? `Giao diện SAPP đang TẮT (Claude Code dùng giao diện mặc định). Giao diện đã chọn gần nhất: ${current.title}.`
+      ? `Giao diện SAPP đang TẮT (Claude Code dùng giao diện mặc định).${hasChoice ? ` Giao diện đã chọn gần nhất: ${current.title}.` : ''}`
       : `Giao diện SAPP, đang dùng: ${current.title}.`,
     ...THEMES.map(
       (t, i) => `${i + 1}. ${t.title} (${t.id}): ${t.blurb}${!off && t === current ? ' [đang dùng]' : ''}`,
     ),
-    `Đổi bằng /sapp-theme <số, mã hoặc tên>. Tắt giao diện: /sapp-theme off. Bật lại giao diện đã chọn: /sapp-theme on. Nền và màu chỉ hiện ở tab Code của Desktop và trên mobile.`,
+    `Đổi bằng /sapp-theme <số, mã hoặc tên>. Tắt giao diện: /sapp-theme off. Bật giao diện: /sapp-theme on. Nền và màu chỉ hiện ở tab Code của Desktop và trên mobile.`,
   ].join('\n')
 
 const switchTo = async ($, theme, state) => {
@@ -95,8 +104,10 @@ const turnOff = async ($, state) => {
 const answer = async ($, e, state) => {
   const asked = (e.args ?? '').trim()
   const off = state.off ?? (await isOff($))
-  const last = state.applied ?? themeOrDefault(await stored($))
-  if (asked === '') return { text: listText(last, off), isTextDisplayOnly: true }
+  const choice = state.applied ?? (await stored($))
+  const last = state.applied ?? themeOrDefault(choice)
+  const hasChoice = choice != null
+  if (asked === '') return { text: listText(last, off, hasChoice), isTextDisplayOnly: true }
 
   const word = plain(asked)
   if (OFF_WORDS.includes(word)) return { text: await turnOff($, state), isTextDisplayOnly: true }
@@ -106,7 +117,7 @@ const answer = async ($, e, state) => {
   const theme = pickTheme(asked)
   if (!theme) {
     return {
-      text: `Không có giao diện "${shown(asked)}".\n${listText(last, off)}`,
+      text: `Không có giao diện "${shown(asked)}".\n${listText(last, off, hasChoice)}`,
       isTextDisplayOnly: true,
     }
   }

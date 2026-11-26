@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
-import { CREDIT, SPINNER_TEXT, STORE_KEY, register } from '../hooks/register.js'
+import { CREDIT, OFF_KEY, SPINNER_TEXT, STORE_KEY, register } from '../hooks/register.js'
 import { SCENE_SVG } from '../hooks/scene.js'
 import { THEMES, dotsSvg, pickTheme, themeOrDefault } from '../hooks/themes.js'
 import { tokens } from '../hooks/tokens.js'
@@ -106,8 +106,8 @@ test('backdrop and shader per theme: each scene has its own id and shader, dots 
 
 // ---- switching, fallback, persistence ---------------------------------------------
 
-test('a first start with an empty store sets the default theme: acca-classroom with its backdrop', async () => {
-  const engine = registered()
+test('a start with the theme turned on and nothing chosen sets the default theme: acca-classroom with its backdrop', async () => {
+  const engine = registered(register, { store: new Map([[OFF_KEY, false]]) })
   await startSession(engine)
   const set = lastSet(engine)
 
@@ -142,7 +142,8 @@ test('the removed ids acca-night, marketing-board, it-blueprint and sapp-plain, 
 })
 
 test('an unknown, removed or malformed stored id falls back to the default theme', async () => {
-  for (const bad of ['sapp-hologram', '', 42, null, { id: 'it-room' }, 'IT-ROOM']) {
+  // A stored value of any kind, without the off key, is a person who chose a theme: it stays on.
+  for (const bad of ['sapp-hologram', '', 42, { id: 'it-room' }, 'IT-ROOM']) {
     const engine = registered(register, { store: new Map([[STORE_KEY, bad]]) })
     await startSession(engine)
 
@@ -152,12 +153,12 @@ test('an unknown, removed or malformed stored id falls back to the default theme
   assert.equal(themeOrDefault(undefined).id, 'acca-classroom')
 })
 
-test('a store that throws still gives the default theme and the credit line', async () => {
+test('a store that throws still starts: the credit line shows and no theme is set (off is the default)', async () => {
   const engine = registered(register, { throwOn: 'store.get' })
   const result = await startSession(engine)
 
   assert.ok(result.passed)
-  assert.equal(lastSet(engine).backdrop.scene, 'sapp-acca-classroom')
+  assert.equal(setCalls(engine).length, 0)
   assert.deepEqual(engine.calls.find(c => c.path === 'ui.status').args, [CREDIT])
 })
 
@@ -213,7 +214,7 @@ test('/sapp-theme with no argument lists the four themes and marks the one in us
       '2. Phòng Marketing (marketing-room): Phòng Marketing pixel art: bàn chiến dịch, bảng KPI, góc quay nội dung',
       '3. Phòng IT (it-room): Phòng IT pixel art: tủ rack, màn hình giám sát, đèn LED nhấp nháy chậm; sáng ban ngày, tối về đêm [đang dùng]',
       '4. Chấm vàng SAPP (sapp-dots): Lưới chấm vàng SAPP tĩnh, nhẹ',
-      'Đổi bằng /sapp-theme <số, mã hoặc tên>. Tắt giao diện: /sapp-theme off. Bật lại giao diện đã chọn: /sapp-theme on. Nền và màu chỉ hiện ở tab Code của Desktop và trên mobile.',
+      'Đổi bằng /sapp-theme <số, mã hoặc tên>. Tắt giao diện: /sapp-theme off. Bật giao diện: /sapp-theme on. Nền và màu chỉ hiện ở tab Code của Desktop và trên mobile.',
     ].join('\n'),
   )
   assert.equal(setCalls(engine).length, 0)
@@ -300,7 +301,7 @@ test('the spinner says "SAPP đang xử lý…" in place of the word and leaves 
 })
 
 test('the credit line survives a build where $.theme.set throws, and it is set first', async () => {
-  const engine = registered(register, { throwOn: 'theme.set' })
+  const engine = registered(register, { throwOn: 'theme.set', store: new Map([[OFF_KEY, false]]) })
   const result = await startSession(engine)
 
   assert.ok(result.passed)
@@ -500,7 +501,7 @@ test('a status line that throws during a switch does not stop the store or the a
   assert.equal(engine.store.get(STORE_KEY), 'sapp-dots')
   assert.equal(out.text, 'Đã đổi sang "Chấm vàng SAPP" và lưu lại cho các phiên sau.')
   // And at the start of a session the theme is still set.
-  const started = registered(register, { throwOn: 'ui.status' })
+  const started = registered(register, { throwOn: 'ui.status', store: new Map([[OFF_KEY, false]]) })
   await startSession(started)
   assert.equal(lastSet(started).backdrop.scene, 'sapp-acca-classroom')
 })
