@@ -213,7 +213,7 @@ test('/sapp-theme with no argument lists the four themes and marks the one in us
       '2. Phòng Marketing (marketing-room): Phòng Marketing pixel art: bàn chiến dịch, bảng KPI, góc quay nội dung',
       '3. Phòng IT (it-room): Phòng IT pixel art: tủ rack, màn hình giám sát, đèn LED nhấp nháy chậm; sáng ban ngày, tối về đêm [đang dùng]',
       '4. Chấm vàng SAPP (sapp-dots): Lưới chấm vàng SAPP tĩnh, nhẹ',
-      'Đổi bằng /sapp-theme <số, mã hoặc tên>. Nền và màu chỉ hiện ở tab Code của Desktop và trên mobile.',
+      'Đổi bằng /sapp-theme <số, mã hoặc tên>. Tắt giao diện: /sapp-theme off. Bật lại giao diện đã chọn: /sapp-theme on. Nền và màu chỉ hiện ở tab Code của Desktop và trên mobile.',
     ].join('\n'),
   )
   assert.equal(setCalls(engine).length, 0)
@@ -306,7 +306,7 @@ test('the credit line survives a build where $.theme.set throws, and it is set f
   assert.ok(result.passed)
   assert.deepEqual(
     engine.calls.map(c => c.path),
-    ['ui.status', 'store.get', 'theme.set', 'command.register', 'command.register', 'store.get', 'store.set', 'ui.toast'],
+    ['ui.status', 'store.get', 'store.get', 'theme.set', 'command.register', 'command.register', 'store.get', 'store.set', 'ui.toast'],
   )
   assert.deepEqual(engine.calls[0].args, ['Tạo bởi SAPP IT Department, © 2026'])
 })
