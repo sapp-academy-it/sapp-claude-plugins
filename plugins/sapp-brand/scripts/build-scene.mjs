@@ -162,6 +162,8 @@ export class Canvas {
   constructor(base) {
     this.cells = new Array(GRID_W * GRID_H).fill('r' + base)
     this.lit = new Map()
+    // What was drawn, in order: sprite blits and seats, for the seating tests.
+    this.trace = []
   }
   inside(x, y) {
     return x >= 0 && y >= 0 && x < GRID_W && y < GRID_H
@@ -220,6 +222,7 @@ export class Canvas {
   }
   // Draw a rectangle of a sprite sheet at (x, y); `flip` mirrors it left to right.
   blit(path, x, y, { sx = 0, sy = 0, w, h, flip = false } = {}) {
+    this.trace.push({ path, x, y })
     const img = sprite(path)
     const sw = w ?? img.width - sx
     const sh = h ?? img.height - sy
@@ -235,9 +238,21 @@ export class Canvas {
   person(n, col, row, x, y, opts = {}) {
     this.blit(`characters/char_${n}.png`, x, y, { sx: col * 16, sy: row * 32, w: 16, h: 32, ...opts })
   }
+  // A sprite painted in the lit layer (pixels at least half opaque), as it is drawn.
+  litBlit(path, x, y) {
+    this.trace.push({ path, x, y, lit: true })
+    const img = sprite(path)
+    for (let j = 0; j < img.height; j++) {
+      for (let i = 0; i < img.width; i++) {
+        const o = (j * img.width + i) * 4
+        if (img.rgba[o + 3] >= 128) this.litPx(x + i, y + j, toHex([img.rgba[o], img.rgba[o + 1], img.rgba[o + 2]]))
+      }
+    }
+  }
   // The same frame painted in the lit layer, above the veils: sprite colours as drawn, so the
   // person stays clearly visible in a scene that is muted on purpose. Pixels at least half opaque.
   litPerson(n, col, row, x, y, { flip = false } = {}) {
+    this.trace.push({ path: `characters/char_${n}.png`, x, y, lit: true })
     const img = sprite(`characters/char_${n}.png`)
     for (let j = 0; j < 32; j++) {
       for (let i = 0; i < 16; i++) {
@@ -288,6 +303,33 @@ function raisedHand(cv, n, x, y) {
   cv.box(x + 14, y + 4, 4, 4, skin)
 }
 
+// ---- seating, as the viz office does it ----------------------------------------------------------
+// In gotechcom/vibemaestro-viz (screens/office: layout.ts chairSpot, scene.tsx drawCharacter, room.ts drawDesk)
+// a desk is drawn at (d.x - 24, d.y - 16), its PC at (d.x - 8, d.y - 22), and a person at work uses the
+// back-view typing frame (columns 3 and 4 of the back row), centred on the desk with the sprite's top at
+// d.y - 8. Then the chair back is drawn OVER the person, at the same top-left corner: the order is desk,
+// person, chair back. In scene cells, for a desk sprite at (dx, dy): the person and the chair sit at
+// (dx + 16, dy + 8). The chair's opaque rows 15 to 31 cover the person's lower body, so they read as seated.
+export const SEAT = { x: 16, y: 8 }
+export const CHAIR_ROWS = [15, 31]
+export const SEATED_BOTTOM_ROW = 25
+
+// Seats a person at a desk sprite drawn at (dx, dy): the person, then (if given) what the person does
+// with a hand, then the chair back over the legs. `lit` paints person and chair in the lit layer.
+function seat(cv, { who, col, dx, dy, hand = false, lit = false, rim = () => {} }) {
+  const x = dx + SEAT.x
+  const y = dy + SEAT.y
+  if (who !== null) {
+    rim(who, col, x, y)
+    if (lit) cv.litPerson(who, col, 1, x, y)
+    else cv.person(who, col, 1, x, y)
+    if (hand) raisedHand(cv, who, x, y)
+  }
+  if (lit) cv.litBlit('furniture/WOODEN_CHAIR_BACK.png', x, y)
+  else cv.blit('furniture/WOODEN_CHAIR_BACK.png', x, y)
+  cv.trace.push({ seat: true, who, x, y, desk: { x: dx, y: dy } })
+}
+
 // ---- merging cells into paths ---------------------------------------------------
 
 function toRuns(get, background) {
@@ -326,7 +368,9 @@ const H = GRID_H * SCALE
 
 // opts: bg, veil {light, dark} as [colour, opacity], dark = { bg, of } sinks a room
 // colour in a dark window (null = the room is the same in both modes).
+let lastTrace = []
 function serialize(cv, { bg, veil, dark }) {
+  lastTrace = cv.trace
   const rects = toRuns(i => cv.cells[i], null)
   const keys = [...new Set(rects.map(r => r.c))].sort()
   const classOf = new Map(keys.map((k, i) => [k, `c${i}`]))
@@ -384,9 +428,9 @@ function notebook(cv, x, y, cover) {
   }
 }
 // Books in a stack, 9 wide.
-function books(cv, x, y, colors) {
+function books(cv, x, y, colors, width = 9) {
   colors.forEach((c, i) => {
-    const w = 9 - (i % 2)
+    const w = width - (i % 2)
     cv.box(x, y - i * 2, w, 2, c)
     cv.box(x, y - i * 2, w, 1, mix(c, '#FFFFFF', 0.25))
     cv.px(x + w - 1, y - i * 2 + 1, mix(c, '#000000', 0.3))
@@ -440,18 +484,13 @@ const SEATS = [
 ]
 const COVERS = ['#3F6FA8', '#A8483F', '#4C8C5A', '#7A5FA8', '#C9892B', '#3F8C8C']
 
-function desk(cv, dx, dy, seat, k) {
+function desk(cv, dx, dy, who, k) {
   cv.blit('furniture/DESK_FRONT.png', dx, dy)
-  calculator(cv, dx + 5, dy + 14)
-  notebook(cv, dx + 12, dy + 15, COVERS[k % COVERS.length])
-  books(cv, dx + 36, dy + 22, [COVERS[(k + 2) % 6], COVERS[(k + 4) % 6], COVERS[(k + 1) % 6]].slice(0, 2 + (k % 2)))
-  const sx = dx + 24
-  const sy = dy + 13
-  if (seat.who !== null) {
-    cv.person(seat.who, seat.col, 1, sx, sy)
-    if (seat.hand) raisedHand(cv, seat.who, sx, sy)
-  }
-  cv.blit('furniture/WOODEN_CHAIR_BACK.png', sx, sy + 9)
+  // What is on the desk, at its two ends: the middle is where the student sits.
+  notebook(cv, dx + 5, dy + 15, COVERS[k % COVERS.length])
+  calculator(cv, dx + 34, dy + 14)
+  books(cv, dx + 38, dy + 23, [COVERS[(k + 2) % 6], COVERS[(k + 4) % 6]].slice(0, 1 + (k % 2)), 6)
+  seat(cv, { who: who.who, col: who.col, dx, dy, hand: who.hand })
 }
 
 function classroom() {
@@ -498,7 +537,7 @@ function classroom() {
   cv.box(14, 10, 32, 1, P.steelLo)
 
   // Rows of desks, far to near, so nearer things cover farther ones.
-  SEATS.forEach((row, r) => row.forEach((seat, c) => desk(cv, COLS[c], ROWS[r], seat, r * 3 + c)))
+  SEATS.forEach((row, r) => row.forEach((who, c) => desk(cv, COLS[c], ROWS[r], who, r * 3 + c)))
 
   // The teacher beside the board, from behind, pointing with a ruler.
   cv.person(5, 1, 1, 128, 12)
@@ -578,13 +617,12 @@ function marketing() {
   // The work corner: only two desks with PCs.
   const station = (dx, dy, who, col, pc) => {
     cv.blit('furniture/DESK_FRONT.png', dx, dy)
-    cv.blit(`furniture/PC_FRONT_ON_${pc}.png`, dx + 6, dy - 1)
-    notebook(cv, dx + 30, dy + 15, '#C9892B')
-    cv.person(who, col, 1, dx + 24, dy + 13)
-    cv.blit('furniture/WOODEN_CHAIR_BACK.png', dx + 24, dy + 22)
+    cv.blit(`furniture/PC_FRONT_ON_${pc}.png`, dx + 16, dy - 6)
+    notebook(cv, dx + 5, dy + 15, '#C9892B')
+    seat(cv, { who, col, dx, dy })
   }
-  station(2, 50, 3, 4, 1)
-  station(2, 90, 1, 3, 2)
+  station(2, 44, 3, 4, 1)
+  station(2, 92, 1, 3, 2)
 
   // The campaign table. People behind it (front view) and at its ends (sides) are
   // drawn first, so the table covers their legs.
@@ -705,16 +743,30 @@ function rack(cv, x, y, open, m) {
   }
 }
 
+// A one-cell dark rim around each person, in the lit layer (the pixel-art outline): the sprite itself is
+// never touched, and the person reads against a light day wall and a dark night wall alike.
+export const RIM = '#0B1636'
+// People with darker hair and clothes (the two at desks) get a light rim instead: dark on light reads in a light room
+// and in a dark one alike, where a dark rim would melt into the night wall.
+export const RIM_LIGHT = '#DDE5F7'
+
 // Who is in the IT room (character sheets): the inspector at the open rack and the two at desks.
 export const INSPECTOR = 3
 const DESK_A = 1
 const DESK_B = 4
 // Frame, position and surround of each person: the inspector, then the two seated at desks.
-export const IT_PEOPLE = [
-  { n: INSPECTOR, col: 1, row: 2, x: 116, y: 28 },
-  { n: DESK_A, col: 4, row: 1, x: 34, y: 75 },
-  { n: DESK_B, col: 3, row: 1, x: 90, y: 101 },
+// The desks' sprite corners; a person at a desk sits at the viz seat of it (SEAT).
+export const IT_DESKS = [
+  { x: 10, y: 62 },
+  { x: 66, y: 88 },
 ]
+export const IT_PEOPLE = [
+  { n: INSPECTOR, col: 1, row: 2, x: 116, y: 28, rim: RIM },
+  { n: DESK_A, col: 4, row: 1, x: IT_DESKS[0].x + SEAT.x, y: IT_DESKS[0].y + SEAT.y, rim: RIM_LIGHT },
+  { n: DESK_B, col: 3, row: 1, x: IT_DESKS[1].x + SEAT.x, y: IT_DESKS[1].y + SEAT.y, rim: RIM_LIGHT },
+]
+// The coffee cup stands on the second desk's top surface (desk sprite rows 12 to 24): its opaque rows are 0 to 6.
+export const COFFEE_AT = { x: IT_DESKS[1].x + 28, y: IT_DESKS[1].y + 16 }
 // The cells a frame paints (pixels at least half opaque), as 'x,y' keys.
 export function personCells({ n, col, row, x, y }) {
   const img = sprite(`characters/char_${n}.png`)
@@ -722,9 +774,6 @@ export function personCells({ n, col, row, x, y }) {
   for (let j = 0; j < 32; j++) for (let i = 0; i < 16; i++) if (img.rgba[((row * 32 + j) * img.width + col * 16 + i) * 4 + 3] >= 128) out.add(`${x + i},${y + j}`)
   return out
 }
-// A one-cell dark rim around each person, in the lit layer (the pixel-art outline): the sprite itself is
-// never touched, and the person reads against a light day wall and a dark night wall alike.
-export const RIM = '#0B1636'
 
 // `people: false` builds the same room with nobody in it (the contrast test measures them against it).
 function itRoom({ people = true, outline = true } = {}) {
@@ -776,32 +825,37 @@ function itRoom({ people = true, outline = true } = {}) {
     cv.box(x + 6, 50, 1, 6, cables[(i + 1) % 4])
   })
 
-  // The inspector: side view, a laptop in his arms, facing the open rack.
+  // The people are in the lit layer, each with a one-cell rim. The inspector stands at the open rack.
+  const rim = person => {
+    if (!outline) return
+    const own = personCells(person)
+    for (const k of own) {
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const [x, y] = k.split(',').map(Number)
+        if (!own.has(`${x + dx},${y + dy}`)) cv.litPx(x + dx, y + dy, person.rim)
+      }
+    }
+  }
+  if (people) {
+    rim(IT_PEOPLE[0])
+    cv.litPerson(INSPECTOR, 1, 2, IT_PEOPLE[0].x, IT_PEOPLE[0].y)
+  }
   laptop(cv, 132, 44, '#0A1F3A')
   cv.litBox(133, 45, 10, 6, '#13203A')
   cv.litBox(134, 47, 6, 1, '#B8C4F0')
   cv.litBox(134, 49, 4, 1, '#5FD08A')
 
-  // The people, last, in the lit layer: each with a one-cell rim.
-  if (people) {
-    for (const person of IT_PEOPLE) {
-      const own = personCells(person)
-      if (outline) for (const k of own) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const [x, y] = k.split(',').map(Number); if (!own.has(`${x + dx},${y + dy}`)) cv.litPx(x + dx, y + dy, RIM) }
-      cv.litPerson(person.n, person.col, person.row, person.x, person.y)
-    }
+  // Two desks, each with two monitors flanking the person at it (desk, monitors, person, chair back over the legs).
+  const station = (desk, who, col, pcs) => {
+    cv.blit('furniture/DESK_FRONT.png', desk.x, desk.y)
+    cv.blit(`furniture/PC_FRONT_ON_${pcs[0]}.png`, desk.x + 2, desk.y - 6)
+    cv.blit(`furniture/PC_FRONT_ON_${pcs[1]}.png`, desk.x + 30, desk.y - 6)
+    seat(cv, { who: people ? who : null, col, dx: desk.x, dy: desk.y, lit: true, rim: (n, c, x, y) => rim({ n, col: c, row: 1, x, y, rim: RIM_LIGHT }) })
   }
-
-  // Two desks, each with two monitors and a person.
-  const station = (dx, dy, who, col, pcs) => {
-    cv.blit('furniture/DESK_FRONT.png', dx, dy)
-    cv.blit(`furniture/PC_FRONT_ON_${pcs[0]}.png`, dx + 2, dy - 1)
-    cv.blit(`furniture/PC_FRONT_ON_${pcs[1]}.png`, dx + 18, dy - 1)
-    cv.blit('furniture/WOODEN_CHAIR_BACK.png', dx + 24, dy + 22)
-  }
-  station(10, 62, DESK_A, 4, [1, 2])
-  station(66, 88, DESK_B, 3, [3, 1])
-  // A coffee cup on the second desk, a plant by the wall and a big one in the corner.
-  cv.blit('furniture/COFFEE.png', 66 + 34, 88 + 7)
+  station(IT_DESKS[0], DESK_A, 4, [1, 2])
+  station(IT_DESKS[1], DESK_B, 3, [3, 1])
+  // A coffee cup on the second desk's top surface, a plant by the wall and a big one in the corner.
+  cv.blit('furniture/COFFEE.png', COFFEE_AT.x, COFFEE_AT.y)
   cv.blit('furniture/PLANT.png', 182, 18)
   cv.blit('furniture/LARGE_PLANT.png', 150, 88)
 
@@ -824,6 +878,11 @@ export const SCENES = {
 }
 
 export const buildScene = (name = 'classroom') => SCENES[name].build()
+// What a scene draws, in order (sprite blits and seats), for the seating tests.
+export function buildTrace(name) {
+  SCENES[name].build()
+  return lastTrace
+}
 // The IT room with nobody in it, for measuring the people against their surroundings.
 export const buildItWithoutPeople = () => itRoom({ people: false })
 export const buildItWithoutRim = () => itRoom({ outline: false })

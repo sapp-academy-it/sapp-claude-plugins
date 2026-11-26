@@ -6,7 +6,7 @@ import { IT_SVG } from '../hooks/scene-it.js'
 import { MARKETING_SVG } from '../hooks/scene-marketing.js'
 import { SCENE_SVG } from '../hooks/scene.js'
 import { THEMES, pickTheme } from '../hooks/themes.js'
-import { GRAPH_BG, GRAPH_PANEL, IT_PEOPLE, MARKERS, RIM, SCENES, buildItWithoutPeople, buildItWithoutRim, buildScene, buildSceneModule, personCells } from '../scripts/build-scene.mjs'
+import { GRAPH_BG, GRAPH_PANEL, IT_PEOPLE, MARKERS, RIM, RIM_LIGHT, SCENES, buildItWithoutPeople, buildItWithoutRim, buildScene, buildSceneModule, buildTrace, COFFEE_AT, IT_DESKS, personCells, readPng } from '../scripts/build-scene.mjs'
 import { registered, render, runCommand } from './harness.js'
 
 const hooks = new URL('../hooks/', import.meta.url)
@@ -347,13 +347,27 @@ test('the board ink reads on the board face at 4.5 to 1 or more in a light and a
 
 // Mean luminance of a person's cells against the mean luminance of the one-cell ring around them,
 // in the final picture of a light or a dark window.
-function personContrast(svg, mode, person) {
+// The chair back's cells over a seated person (none for the inspector, who stands).
+const chairCellsOf = person => {
+  const seat = IT_DESKS.some(d => person.x === d.x + 16 && person.y === d.y + 8)
+  if (!seat) return new Set()
+  const img = png('furniture/WOODEN_CHAIR_BACK.png')
+  const out = new Set()
+  for (let j = 0; j < 32; j++) for (let i = 0; i < 16; i++) if (img.rgba[(j * 16 + i) * 4 + 3] >= 128) out.add(`${person.x + i},${person.y + j}`)
+  return out
+}
+function personContrast(svg, mode, person, chair = new Set()) {
   const picture = pictureOf(svg, mode)
-  const own = personCells(person)
+  // A seated person is seen without the chair back drawn over the legs: those cells belong to the chair,
+  // for the person and for the surround alike.
+  const own = new Set([...personCells(person)].filter(k => !chair.has(k)))
   const ring = new Set()
   for (const k of own) {
     const [x, y] = k.split(',').map(Number)
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!own.has(`${x + dx},${y + dy}`)) ring.add(`${x + dx},${y + dy}`)
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const near = `${x + dx},${y + dy}`
+      if (!own.has(near) && !chair.has(near)) ring.add(near)
+    }
   }
   const mean = keys => [...keys].reduce((sum, k) => sum + luminance('#' + picture.get(k).map(v => Math.round(v).toString(16).padStart(2, '0')).join('')), 0) / keys.size
   const [hi, lo] = [mean(own), mean(ring)].sort((a, b) => b - a)
@@ -362,15 +376,112 @@ function personContrast(svg, mode, person) {
 
 test('each person in the IT room reads at 3 to 1 or more against their surround, in a light and a dark window', () => {
   for (const mode of ['light', 'dark']) {
-    for (const person of IT_PEOPLE) assert.ok(personContrast(IT_SVG, mode, person) >= 3, `${mode} char ${person.n}: ${personContrast(IT_SVG, mode, person).toFixed(2)}`)
+    for (const person of IT_PEOPLE) {
+      const value = personContrast(IT_SVG, mode, person, chairCellsOf(person))
+      assert.ok(value >= 3, `${mode} char ${person.n}: ${value.toFixed(2)}`)
+    }
   }
   // Controls: the measure is live. The same room with no rim fails it for someone in some window, and a
   // person measured in a room with nobody in it reads as nothing special.
   const bare = buildItWithoutRim()
-  const failing = ['light', 'dark'].flatMap(mode => IT_PEOPLE.filter(person => personContrast(bare, mode, person) < 3))
+  const failing = ['light', 'dark'].flatMap(mode => IT_PEOPLE.filter(person => personContrast(bare, mode, person, chairCellsOf(person)) < 3))
   assert.ok(failing.length > 0)
   assert.equal(buildItWithoutPeople().includes(`<path fill="${RIM}"`), false)
+  assert.equal(buildItWithoutPeople().includes(`<path fill="${RIM_LIGHT}"`), false)
   // The rim is dark ink, never a recolouring: a person's own cells keep the sprite's colours.
   const lit = litCells(IT_SVG)
   assert.equal(IT_PEOPLE.every(person => [...personCells(person)].every(k => lit.has(k))), true)
+})
+
+// ---- seating, as the viz office seats a character ----------------------------------------------------------------
+// gotechcom/vibemaestro-viz (screens/office): a desk sprite at (d.x - 24, d.y - 16); a person at work uses the
+// back-view typing frame, centred on the desk, its top at d.y - 8, i.e. 16 right and 8 down of the desk sprite's
+// corner; then the chair back is drawn at the same corner, over the person's legs. Order: desk, person, chair.
+
+const assets = new URL('../assets/', import.meta.url)
+const png = path => readPng(readFileSync(new URL(path, assets)))
+const opaque = (img, sx, sy, w, h) => {
+  const rows = []
+  const cols = []
+  for (let j = 0; j < h; j++) {
+    for (let i = 0; i < w; i++) {
+      if (img.rgba[((sy + j) * img.width + sx + i) * 4 + 3] >= 128) {
+        rows.push(j)
+        cols.push(i)
+      }
+    }
+  }
+  return { top: Math.min(...rows), bottom: Math.max(...rows), left: Math.min(...cols), right: Math.max(...cols) }
+}
+const chairRows = opaque(png('furniture/WOODEN_CHAIR_BACK.png'), 0, 0, 16, 32)
+
+// Is this placement a seated one? The person's origin is 16 right and 8 down of the desk's, the chair is at the
+// person's origin, drawn after desk and person, and the person's bottom row lies in the chair's rows.
+function seated({ desk, person, chair, order, bottomRow }) {
+  const personBottom = person.y + bottomRow
+  return (
+    person.x === desk.x + 16 &&
+    person.y === desk.y + 8 &&
+    chair.x === person.x &&
+    chair.y === person.y &&
+    order.desk < order.person &&
+    order.person < order.chair &&
+    personBottom >= chair.y + chairRows.top &&
+    personBottom <= chair.y + chairRows.bottom
+  )
+}
+
+// Every seat of a scene, with the draw order read from the trace.
+function seatsOf(name) {
+  const trace = buildTrace(name)
+  return trace.flatMap((entry, at) => {
+    if (!entry.seat || entry.who === null) return []
+    const before = trace.slice(0, at)
+    const last = pred => before.map((e, i) => [e, i]).filter(([e]) => pred(e)).at(-1)
+    const [desk, deskAt] = last(e => e.path === 'furniture/DESK_FRONT.png' && e.x === entry.desk.x && e.y === entry.desk.y)
+    const [person, personAt] = last(e => e.path === `characters/char_${entry.who}.png` && e.x === entry.x && e.y === entry.y)
+    const [chair, chairAt] = last(e => e.path === 'furniture/WOODEN_CHAIR_BACK.png' && e.x === entry.x && e.y === entry.y)
+    const frame = [3, 4].map(col => opaque(png(`characters/char_${entry.who}.png`), col * 16, 32, 16, 32).bottom)
+    return [{ who: entry.who, desk, person, chair, order: { desk: deskAt, person: personAt, chair: chairAt }, bottomRow: Math.max(...frame) }]
+  })
+}
+
+for (const [name, count] of [['classroom', 5], ['marketing', 2], ['it', 2]]) {
+  test(`${name}: every seated person sits as in the viz office: centred on the desk, the chair back over the legs, drawn after the person`, () => {
+    const seats = seatsOf(name)
+
+    assert.equal(seats.length, count)
+    for (const seat of seats) assert.equal(seated(seat), true, `char ${seat.who} at desk ${seat.desk.x},${seat.desk.y}`)
+    // Control: the old placement (person 24 right and 13 down, the chair 9 below the person, drawn after) is refused.
+    const [first] = seats
+    const old = {
+      ...first,
+      person: { x: first.desk.x + 24, y: first.desk.y + 13 },
+      chair: { x: first.desk.x + 24, y: first.desk.y + 22 },
+    }
+    assert.equal(seated(old), false)
+    // Control: the chair drawn before the person is refused too.
+    assert.equal(seated({ ...first, order: { desk: 0, person: 2, chair: 1 } }), false)
+  })
+}
+
+test('the coffee cup in the IT room stands on a desk top: its bottom row on a top-surface row, inside the desk\'s width', () => {
+  const desk = png('furniture/DESK_FRONT.png')
+  const cup = opaque(png('furniture/COFFEE.png'), 0, 0, 16, 16)
+  // The desk sprite's top surface: the rows where its middle column is the wood top colour.
+  const surface = []
+  for (let j = 0; j < 32; j++) {
+    const o = (j * 48 + 24) * 4
+    const hex = [0, 1, 2].map(i => desk.rgba[o + i].toString(16).padStart(2, '0')).join('')
+    if (['b38857', 'cfa86d'].includes(hex)) surface.push(j)
+  }
+  const { left, right } = opaque(desk, 0, 0, 48, 32)
+  const onADesk = at => IT_DESKS.some(d => at.y + cup.bottom >= d.y + Math.min(...surface) && at.y + cup.bottom <= d.y + Math.max(...surface) && at.x + cup.left >= d.x + left && at.x + cup.right <= d.x + right)
+
+  assert.deepEqual([Math.min(...surface), Math.max(...surface)], [12, 24])
+  assert.equal(onADesk(COFFEE_AT), true)
+  assert.ok(buildTrace('it').some(e => e.path === 'furniture/COFFEE.png' && e.x === COFFEE_AT.x && e.y === COFFEE_AT.y))
+  // Controls: the old placement (the cup beyond the desk's right end, and one on the floor) is refused.
+  assert.equal(onADesk({ x: 66 + 34, y: 88 + 7 }), false)
+  assert.equal(onADesk({ x: COFFEE_AT.x, y: IT_DESKS[1].y + 60 }), false)
 })
