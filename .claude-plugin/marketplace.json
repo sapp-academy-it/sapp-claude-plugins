@@ -7,7 +7,7 @@
     {
       "name": "sapp-brand",
       "source": "./plugins/sapp-brand",
-      "description": "Nhận diện SAPP cho Claude Code: màu giao diện, nền lớp học ACCA, dòng credit và chữ khi Claude đang xử lý"
+      "description": "Bộ giao diện SAPP cho Claude Code: bốn giao diện đổi được bằng /sapp-theme (lớp học ACCA, lớp học ban đêm, chấm vàng, chỉ màu), dòng credit và chữ khi Claude đang xử lý"
     }
   ],
   "metadata": {

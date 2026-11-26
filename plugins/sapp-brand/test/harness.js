@@ -1,7 +1,8 @@
 // A fake engine for the tests: `on` records each hook, `$` records each call.
 import { register } from '../hooks/register.js'
 
-export function makeEngine({ throwOn } = {}) {
+// `store` is a fake $.store: a Map the mod reads and writes through $.store.get/set.
+export function makeEngine({ throwOn, store = new Map() } = {}) {
   const hooks = []
   const calls = []
 
@@ -13,7 +14,11 @@ export function makeEngine({ throwOn } = {}) {
     const target = (...args) => {
       calls.push({ path: path.join('.'), args })
       if (path.join('.') === throwOn) throw new Error('not available on this build')
-      return path.join('.') === 'theme.set' ? { isDrawn: true } : undefined
+      const name = path.join('.')
+      if (name === 'theme.set') return { isDrawn: true }
+      if (name === 'store.get') return store.get(args[0])
+      if (name === 'store.set') return void store.set(args[0], args[1])
+      return undefined
     }
     return new Proxy(target, { get: (_, key) => record([...path, String(key)]) })
   }
@@ -46,7 +51,7 @@ export function makeEngine({ throwOn } = {}) {
     },
   )
 
-  return { hooks, calls, on, $ }
+  return { hooks, calls, on, $, store }
 }
 
 export function registered(registerFn = register, options) {
@@ -70,4 +75,9 @@ export async function startSession(engine) {
 export async function render(engine, component, e) {
   const hook = find(engine, 'ui.render', { component })
   return hook.fn(engine.$, e, next)
+}
+
+export async function runCommand(engine, command, args) {
+  const hook = find(engine, 'command.run', { command })
+  return hook.fn(engine.$, { command, args }, next)
 }
