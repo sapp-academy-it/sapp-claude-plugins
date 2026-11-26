@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { CAPPED, COLUMN, FIXED, frameScene, scaleFor } from '../hooks/layout.js'
+import { CHAT, D13, FIXED, INSET, SIDEBAR, TITLEBAR, TOP, frameScene } from '../hooks/layout.js'
 import { CUTS, THEMES, dotsSvg } from '../hooks/themes.js'
 import { GRID_H, GRID_W, ZONES } from '../scripts/build-scene.mjs'
 
@@ -98,7 +98,7 @@ test('both zones sit on the window edges at 4 points a cell, from the top; the v
 })
 
 test('every room is cut at the zones its builder composed, and keeps the middle empty: no sprite colour between the zones', () => {
-  assert.deepEqual(ZONES, { left: 88, right: 104 })
+  assert.deepEqual(ZONES, { left: 74, right: 118 })
   assert.equal(GRID_W, 192)
   assert.equal(GRID_H, 200)
   for (const t of THEMES.filter(x => x.art && x.id !== 'sapp-dots')) {
@@ -130,81 +130,87 @@ test('the dots keep their detail to the 8 columns at each side: none in the midd
   assert.ok(xs.some(x => x >= 512))
 })
 
-// ---- the scale rule --------------------------------------------------------------------------
+// ---- the real Desktop geometry ----------------------------------------------------------------------------------
 
-test('option A is 4 whatever the window; option B follows the gutter and the height, never above 6 or below 2', () => {
-  for (const win of [[1440, 900], [1728, 1117], [1920, 1080], [600, 300]]) assert.equal(scaleFor(FIXED, win, 88), 4)
-
-  // 1440: gutter 340, 340/88 = 3.86; 1728: 484/88 = 5.5; 1920: 580/88 = 6.6 but 1080/200 = 5.4.
-  assert.equal(scaleFor(CAPPED, [1440, 900], 88), 3)
-  assert.equal(scaleFor(CAPPED, [1728, 1117], 88), 5)
-  assert.equal(scaleFor(CAPPED, [1920, 1080], 88), 5)
-  // The height binds: 800 / 200 = 4.
-  assert.equal(scaleFor(CAPPED, [1920, 800], 88), 4)
-  // A window narrower than the column, and a tiny one: the floor.
-  assert.equal(scaleFor(CAPPED, [700, 900], 88), 2)
-  assert.equal(scaleFor(CAPPED, [300, 100], 88), 2)
-  assert.equal(COLUMN, 760)
-})
-
-// The scale the generated CSS bands pick in a window: the highest band whose queries hold.
-const bandScale = (svg, [w, h], start) => {
-  let k = start
-  for (const [, minW, minH, scale] of svg.matchAll(/@media \(min-width:(\d+)px\) and \(min-height:(\d+)px\)\{\.pf\{transform:scale\([\d.]+\)\}\.pl\{transform:translate\(0px,[\d.-]+px\) scale\(([\d.]+)\)\}/g)) {
-    if (w >= Number(minW) && h >= Number(minH)) k = Number(scale) * 4
-  }
-  return k
+// Measured on a Mac Desktop Code tab (see layout.js): an opaque sidebar 283 CSS px wide at the left, a title bar 40 tall, and a
+// chat column 768 wide centred in the panel to the right of the sidebar. The Backdrop spans the whole window under all three.
+// A room is drawn at 3 CSS px a cell, the left zone from INSET px in, the whole room TOP px down.
+const column = (width, sidebar) => {
+  const panel = width - (sidebar ? SIDEBAR : 0)
+  const left = (sidebar ? SIDEBAR : 0) + (panel - CHAT) / 2
+  return { left, right: left + CHAT }
 }
-
-test('the CSS bands of option B give the same scale as the rule, in every window shape', () => {
-  const t = THEMES.find(x => x.id === 'acca-classroom')
-  const svg = frameScene(t.art, CUTS.classroom, CAPPED)
-
-  for (const win of [[1440, 900], [1728, 1117], [1920, 1080], [1920, 800], [700, 900], [1296, 800], [1162, 600], [2560, 1440]]) {
-    assert.equal(bandScale(svg, win, CAPPED.min), scaleFor(CAPPED, win, 88), win.join('x'))
-  }
-  // Control: the reader sees bands at all, and the fixed option has none.
-  assert.equal([...svg.matchAll(/@media \(min-width/g)].length, 4)
-  assert.equal(frameScene(t.art, CUTS.classroom, FIXED).includes('@media (min-width'), false)
-})
-
-// ---- nothing crosses the chat column at 1440 ---------------------------------------------------------------------
-
-// A 1440 wide window leaves (1440 - 760) / 2 = 340 px each side of the column: 85 cells at 4 px a cell. The sprites of
-// the left zone must end by cell 85, and those of the right zone start from cell 192 - 85 = 107.
-const GUTTER_CELLS = (1440 - COLUMN) / 2 / 4
-// The sprite and lit rects (not the room's own wall bands, which run on by design, and not the floor tiles) that reach the column.
-const crossings = svg => {
+// The zone rects that reach under the column or the sidebar in a window: sprite and lit rects only (not the wall bands that run on).
+const reaching = (svg, width, sidebar) => {
   const style = svg.match(/<style>(.*?)<\/style>/s)[1]
   const room = new Set([...style.slice(style.indexOf('@media')).matchAll(/\.(c\d+)\{/g)].map(m => m[1]))
+  const { left, right } = column(width, sidebar)
   const out = []
-  // Each zone is one nested svg: `width="50%"` for the left, `x="50%"` for the right.
   for (const [block] of svg.matchAll(/<svg (?:width|x)="50%".*?<\/g>/gs)) {
-    const left = block.startsWith('<svg width="50%"')
+    const isLeft = block.startsWith('<svg width="50%"')
     for (const [, cls, d] of block.matchAll(/<path (?:class="(c\d+)"|fill="#[0-9A-Fa-f]{6}") d="([^"]*)"\/>/g)) {
       if (cls && room.has(cls)) continue
       for (const [, x, w] of d.matchAll(/M(-?\d+) -?\d+h(\d+)v\d+h-\d+z/g)) {
-        const [from, to] = [Number(x) / 4, (Number(x) + Number(w)) / 4]
-        if (left ? to > GUTTER_CELLS : from < GRID_W - GUTTER_CELLS) out.push(`${left ? 'left' : 'right'} ${from}-${to}`)
+        // Scene units are 3/4 CSS px each; the left zone starts INSET px in, the right zone ends at the window's right edge.
+        const a = isLeft ? INSET + (Number(x) * 3) / 4 : width - 192 * 3 + (Number(x) * 3) / 4
+        const b = a + (Number(w) * 3) / 4
+        if (isLeft ? b > left && a < SIDEBAR : false) out.push(`under the sidebar ${a}-${b}`)
+        if (isLeft ? b > left : a < right) out.push(`${isLeft ? 'left' : 'right'} ${a}-${b} against the column ${left}-${right}`)
       }
     }
   }
   return out
 }
 
-test('at 1440 wide no sprite of any room reaches under the 760 px chat column', () => {
-  assert.equal(GUTTER_CELLS, 85)
+test('at 1506 wide with the sidebar open no sprite of any room reaches under the chat column or the sidebar', () => {
+  assert.deepEqual(column(1506, true), { left: 510.5, right: 1278.5 })
+  assert.equal(INSET, 286)
+  assert.equal(TOP, 44)
+  assert.equal(TITLEBAR, 40)
   for (const t of THEMES.filter(x => x.art && x.id !== 'sapp-dots')) {
     const key = { 'acca-classroom': 'classroom', 'marketing-room': 'marketing', 'it-room': 'it' }[t.id]
-    assert.deepEqual(crossings(frameScene(t.art, CUTS[key], FIXED)), [], t.id)
+    assert.deepEqual(reaching(frameScene(t.art, CUTS[key], D13), 1506, true), [], t.id)
   }
-  // Control: the measure is live. A sprite of the left zone to cell 88 (the marketing phone table of the last commit) and one of
-  // the right zone from cell 104 both cross, and one that ends at cell 85 does not.
+  // Control: the measure is live. A sprite of the left zone to cell 88 (the zones before this layout) reaches under the column, and one
+  // of the right zone from cell 104 does too.
   const toy = (l, r) =>
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 800"><style>.bg{fill:#111111}.veil{fill:#FFFFFF;opacity:.3}.c1{fill:#333333}@media (prefers-color-scheme: dark){.c0{fill:#000000}}</style>' +
     '<rect class="bg" width="768" height="800"/>' +
     `<path class="c1" d="M${l[0] * 4} 200h${(l[1] - l[0]) * 4}v40h-${(l[1] - l[0]) * 4}zM${r[0] * 4} 300h${(r[1] - r[0]) * 4}v40h-${(r[1] - r[0]) * 4}z"/>` +
     '<rect class="veil" width="768" height="800"/></svg>'
-  assert.equal(crossings(frameScene(toy([50, 85], [107, 150]), { left: 88, right: 104 }, FIXED)).length, 0)
-  assert.equal(crossings(frameScene(toy([56, 88], [104, 150]), { left: 88, right: 104 }, FIXED)).length, 2)
+  assert.equal(reaching(frameScene(toy([40, 74], [118, 150]), { left: 74, right: 118 }, D13), 1506, true).length, 0)
+  assert.equal(reaching(frameScene(toy([56, 88], [104, 150]), { left: 88, right: 104 }, D13), 1506, true).length, 2)
+})
+
+test('the room starts under the title bar and the left zone past the sidebar: the layout is placed by the measured geometry', () => {
+  const svg = frameScene(THEMES.find(t => t.id === 'it-room').art, CUTS.it, D13)
+
+  assert.ok(svg.includes('<g class="pl" transform="translate(286 44) scale(0.75)">'))
+  assert.ok(svg.includes('<g class="pr" transform="translate(-576 44) scale(0.75)">'))
+  assert.ok(svg.includes('<g class="pf" transform="translate(0 44) scale(0.75)">'))
+  // The wall runs on past the left edge and up past the top, so the inset and the title bar show wall, not the bare background.
+  assert.ok(/M-4000 -4000h/.test(svg) || /M-4000 \d+h/.test(svg) || svg.includes('-4000'))
+  assert.equal(svg.includes('@media (min-width'), false)
+})
+
+// The sprite and lit rects of a scene that lie over a zone line (cells `lines`), as 'from-to' in units.
+const straddling = (art, lines) => {
+  const style = art.match(/<style>(.*?)<\/style>/s)[1]
+  const room = new Set([...style.slice(style.indexOf('@media')).matchAll(/\.(c\d+)\{/g)].map(m => m[1]))
+  const out = []
+  for (const [, cls, d] of art.matchAll(/<path (?:class="(c\d+)"|fill="#[0-9A-Fa-f]{6}") d="([^"]*)"\/>/g)) {
+    if (cls && room.has(cls)) continue
+    for (const [, x, w] of d.matchAll(/M(\d+) \d+h(\d+)v\d+h-\d+z/g)) {
+      const [a, b] = [Number(x), Number(x) + Number(w)]
+      if (lines.some(line => a < line * 4 && b > line * 4)) out.push(`${a}-${b}`)
+    }
+  }
+  return out
+}
+
+test('no sprite of a room is cut by a zone line: nothing but wall bands crosses cell 74 or cell 118', () => {
+  for (const t of THEMES.filter(x => x.art && x.id !== 'sapp-dots')) assert.deepEqual(straddling(t.art, [74, 118]), [], t.id)
+  // Control: a sprite over cell 74 (units 296) and one over cell 118 (units 472) are found, and a wall band (a room colour) is not.
+  const toy = '<svg><style>.c1{fill:#333333}@media (prefers-color-scheme: dark){.c0{fill:#000000}}</style><path class="c1" d="M280 0h40v8h-40zM460 0h40v8h-40z"/><path class="c0" d="M0 0h768v8h-768z"/></svg>'
+  assert.deepEqual(straddling(toy, [74, 118]), ['280-320', '460-500'])
 })

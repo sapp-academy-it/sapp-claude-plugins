@@ -21,7 +21,7 @@ export const GRID_W = 192
 export const GRID_H = 200
 // The two zones of every room, in cells: the left one is cells 0 to `left`, the right one `right` to GRID_W.
 // Between them the room is empty (wall and tiled floor) and layout.js draws that part itself, tiled to any window.
-export const ZONES = { left: 88, right: 104 }
+export const ZONES = { left: 74, right: 118 }
 export const SCALE = 4
 
 const here = new URL('../', import.meta.url)
@@ -102,7 +102,7 @@ export const MARKERS = {
 // The classroom board face is painted above the veils, like its ink, so the ink always has the same contrast on it.
 export const BOARD_FACE = '#E6E2DE'
 // The graph panel in cells: the it-room shader bounds the moving line by its left and right edges (x 4 times these).
-export const GRAPH_PANEL = { x: 10, y: 8, w: 48, h: 24 }
+export const GRAPH_PANEL = { x: 10, y: 8, w: 32, h: 24 }
 export const GRAPH_BG = '#0A1F3A'
 
 // Palette shared with the sprites (the whiteboard, the desk, the clock).
@@ -509,29 +509,29 @@ function classroom() {
   paintRoom(cv, ROOM)
 
   // ---- left zone: the lecture. The board: ACCA, a formula and a small balance sheet, in the marker ink.
-  const face = boardFrame(cv, 4, 3, 68, 29)
+  const face = boardFrame(cv, 2, 3, 56, 29)
   const fx = face.x
   const fy = face.y
   cv.litBox(face.x, face.y, face.w, face.h, BOARD_FACE)
   cv.word5('ACCA', fx + 3, fy + 2, m.ink, 'litPx')
   cv.text('A=L+E', fx + 3, fy + 13, m.ink, 'litPx')
   cv.litBox(fx + 28, fy + 2, 1, 20, P.paperSh)
-  cv.litBox(fx + 29, fy + 9, 31, 1, P.paperSh)
-  cv.text('A', fx + 36, fy + 3, m.ink, 'litPx')
-  cv.text('L+E', fx + 46, fy + 3, m.ink, 'litPx')
-  cv.text('120', fx + 32, fy + 12, m.ink, 'litPx')
-  cv.text('70', fx + 48, fy + 12, m.ink, 'litPx')
-  cv.text('50', fx + 48, fy + 18, m.ink, 'litPx')
+  cv.litBox(fx + 29, fy + 9, 21, 1, P.paperSh)
+  cv.text('A', fx + 31, fy + 3, m.ink, 'litPx')
+  cv.text('L+E', fx + 37, fy + 3, m.ink, 'litPx')
+  cv.text('120', fx + 30, fy + 12, m.ink, 'litPx')
+  cv.text('70', fx + 43, fy + 12, m.ink, 'litPx')
+  cv.text('50', fx + 43, fy + 18, m.ink, 'litPx')
   cv.blit('furniture/PLANT.png', 4, 40)
 
   // The two front students.
   FRONT_SEATS.forEach((s, k) => desk(cv, s.dx, s.dy, s, k))
 
   // The teacher beside the board, facing the students, pointing with a ruler.
-  cv.person(5, 0, 0, 68, 12)
-  cv.line(70, 34, 52, 16, '#D9A441')
-  for (const [x, y] of [[67, 31], [64, 28], [61, 25], [58, 22], [55, 19]]) cv.px(x, y, '#7A5A1E')
-  cv.box(51, 15, 2, 2, P.red)
+  cv.person(5, 0, 0, 58, 12)
+  cv.line(60, 34, 42, 16, '#D9A441')
+  for (const [x, y] of [[57, 31], [54, 28], [51, 25], [48, 22], [45, 19]]) cv.px(x, y, '#7A5A1E')
+  cv.box(41, 15, 2, 2, P.red)
 
   // ---- right zone: the rows of students. The exam calendar: a red header, rings, a grid of days, one day circled red.
   const cx = 152
@@ -550,10 +550,10 @@ function classroom() {
   cv.blit('furniture/PLANT.png', 176, 40)
 
   // A ceiling fan, side on: a rod, a hub and two blades; the blades are the marker.
-  cv.box(129, 3, 2, 3, P.steel)
-  cv.box(128, 6, 4, 2, P.steelLo)
-  cv.litBox(114, 8, 32, 2, m.fan)
-  cv.box(114, 10, 32, 1, P.steelLo)
+  cv.box(135, 3, 2, 3, P.steel)
+  cv.box(134, 6, 4, 2, P.steelLo)
+  cv.litBox(120, 8, 32, 2, m.fan)
+  cv.box(120, 10, 32, 1, P.steelLo)
 
   // Three rows of desks, far to near, so nearer things cover farther ones.
   BACK_SEATS.forEach((s, k) => desk(cv, s.dx, s.dy, s, k + 2))
@@ -606,11 +606,11 @@ function marketing() {
   cv.box(24 + o, 24, 8, 1, P.paperSh)
 
   // A poster.
-  cv.box(62, 4, 18, 25, P.outline)
-  cv.box(63, 5, 16, 23, '#7A5FD0')
-  cv.disc(71, 13, 4, '#FFD166')
-  cv.box(65, 21, 12, 2, '#FFFFFF')
-  cv.box(65, 25, 8, 1, '#D9CCF5')
+  cv.box(54, 4, 18, 25, P.outline)
+  cv.box(55, 5, 16, 23, '#7A5FD0')
+  cv.disc(63, 13, 4, '#FFD166')
+  cv.box(57, 21, 12, 2, '#FFFFFF')
+  cv.box(57, 25, 8, 1, '#D9CCF5')
 
   // The campaign table. People behind it (front view) and at its ends (sides) are
   // drawn first, so the table covers their legs.
@@ -618,24 +618,24 @@ function marketing() {
   const ty = 70
   cv.person(2, 0, 0, tx + 16, ty - 18)
   cv.person(4, 1, 2, tx - 12, ty - 12)
-  cv.person(0, 1, 2, tx + 48, ty - 12, { flip: true })
-  cv.box(tx, ty, 48, 22, P.woodSh)
-  cv.box(tx + 1, ty + 1, 46, 19, P.wood)
-  cv.box(tx + 1, ty + 1, 46, 1, P.woodHi)
-  cv.box(tx, ty + 22, 48, 3, P.woodDk)
+  cv.person(0, 1, 2, tx + 40, ty - 12, { flip: true })
+  cv.box(tx, ty, 40, 22, P.woodSh)
+  cv.box(tx + 1, ty + 1, 38, 19, P.wood)
+  cv.box(tx + 1, ty + 1, 38, 1, P.woodHi)
+  cv.box(tx, ty + 22, 40, 3, P.woodDk)
   cv.box(tx + 3, ty + 25, 4, 9, P.woodDk)
-  cv.box(tx + 41, ty + 25, 4, 9, P.woodDk)
+  cv.box(tx + 33, ty + 25, 4, 9, P.woodDk)
   // The plan spread on it: a big sheet, a timeline, sticky notes, a pen.
-  cv.box(tx + 4, ty + 3, 26, 15, P.paper)
-  cv.box(tx + 4, ty + 17, 26, 1, P.paperSh)
-  cv.box(tx + 6, ty + 5, 10, 2, '#5FA8D9')
-  cv.box(tx + 10, ty + 8, 12, 2, '#E86F8F')
-  cv.box(tx + 14, ty + 11, 12, 2, '#7BC28A')
-  cv.box(tx + 6, ty + 14, 8, 1, P.paperSh)
-  cv.box(tx + 33, ty + 4, 6, 6, '#F2C94C')
-  cv.box(tx + 40, ty + 6, 6, 6, '#F4A6BE')
-  cv.box(tx + 33, ty + 12, 6, 6, '#B9E0A5')
-  cv.line(tx + 20, ty + 16, tx + 25, ty + 18, P.red)
+  cv.box(tx + 3, ty + 3, 22, 15, P.paper)
+  cv.box(tx + 3, ty + 17, 22, 1, P.paperSh)
+  cv.box(tx + 5, ty + 5, 8, 2, '#5FA8D9')
+  cv.box(tx + 8, ty + 8, 10, 2, '#E86F8F')
+  cv.box(tx + 11, ty + 11, 10, 2, '#7BC28A')
+  cv.box(tx + 5, ty + 14, 6, 1, P.paperSh)
+  cv.box(tx + 27, ty + 4, 6, 6, '#F2C94C')
+  cv.box(tx + 32, ty + 6, 6, 6, '#F4A6BE')
+  cv.box(tx + 27, ty + 12, 6, 6, '#B9E0A5')
+  cv.line(tx + 16, ty + 16, tx + 21, ty + 18, P.red)
   // The near person, from behind, leaning over the table.
   cv.person(5, 1, 1, tx + 16, ty + 8)
   // Two speech bubbles: they are talking.
@@ -646,19 +646,19 @@ function marketing() {
     cv.box(x + 3, y + 7, 2, 2, P.outline)
   }
   bubble(tx + 8, ty - 28)
-  bubble(tx + 40, ty - 24)
+  bubble(tx + 36, ty - 24)
 
   // The content corner, below the table (left zone): see after the desks.
   // ---- right zone: the work. The KPI board: a title and bars that rise, in the marker colour.
-  const kf = boardFrame(cv, 108, 3, 44, 29)
+  const kf = boardFrame(cv, 118, 3, 44, 29)
   cv.text('KPI', kf.x + 2, kf.y + 2, P.steelLo)
   cv.line(kf.x + 14, kf.y + 16, kf.x + 36, kf.y + 6, '#E58A3A')
   ;[4, 7, 10, 13, 16].forEach((h, i) => cv.litBox(kf.x + 3 + i * 7, kf.y + 22 - h, 5, h, m.bar))
   cv.box(kf.x + 1, kf.y + 22, kf.w - 2, 1, P.paperSh)
 
   // A plant and the clock on the wall.
-  cv.blit('furniture/PLANT.png', 176, 14)
-  cv.blit('furniture/CLOCK.png', 156, -8)
+  cv.blit('furniture/PLANT.png', 176, 40)
+  cv.blit('furniture/CLOCK.png', 166, -8)
 
   // Three desks with PCs.
   const station = (dx, dy, who, col, pc) => {
@@ -668,12 +668,12 @@ function marketing() {
     seat(cv, { who, col, dx, dy })
   }
   // 57 rows apart: from a monitor's top to the chair above it there are 11 rows of floor, as between the ACCA desks.
-  station(112, 44, 3, 4, 1)
-  station(112, 101, 1, 3, 2)
-  station(112, 158, 4, 4, 3)
+  station(120, 44, 3, 4, 1)
+  station(120, 101, 1, 3, 2)
+  station(120, 158, 4, 4, 3)
 
   // The content corner: a ring light and a camera on a tripod, and a phone.
-  const rx = 6
+  const rx = 4
   const ry = 118
   cv.box(rx + 5, ry + 16, 2, 30, P.steelLo)
   cv.line(rx + 6, ry + 46, rx, ry + 52, P.steelLo)
@@ -681,7 +681,7 @@ function marketing() {
   cv.ring(rx + 6, ry + 8, 5, 8, m.ring, 'litPx')
   cv.disc(rx + 6, ry + 8, 4, P.dark)
   cv.px(rx + 6, ry + 8, P.steel)
-  const kx = 32
+  const kx = 24
   const ky = 126
   cv.box(kx, ky, 12, 8, P.dark)
   cv.box(kx + 1, ky - 2, 4, 2, P.steelLo)
@@ -694,8 +694,8 @@ function marketing() {
   cv.line(kx + 6, ky + 14, kx + 12, ky + 40, P.steelLo)
   cv.line(kx + 6, ky + 14, kx + 6, ky + 42, P.steelLo)
   // The phone on a small table, a heart on its screen.
-  cv.blit('furniture/SMALL_TABLE_FRONT.png', 50, 132)
-  const hx = 62
+  cv.blit('furniture/SMALL_TABLE_FRONT.png', 42, 132)
+  const hx = 54
   const hy = 132
   cv.box(hx, hy, 9, 13, P.dark)
   cv.box(hx + 1, hy + 1, 7, 10, '#F4A6BE')
@@ -771,12 +771,12 @@ export const RACK_TENDER = 2
 export const IT_DESKS = [
   { x: 20, y: 80, who: 1, col: 4, pcs: [1, 2] },
   { x: 20, y: 137, who: 4, col: 3, pcs: [3, 1] },
-  { x: 108, y: 80, who: 0, col: 3, pcs: [2, 3] },
-  { x: 108, y: 137, who: 5, col: 4, pcs: [1, 3] },
+  { x: 120, y: 80, who: 0, col: 3, pcs: [2, 3] },
+  { x: 120, y: 137, who: 5, col: 4, pcs: [1, 3] },
 ]
 export const IT_PEOPLE = [
   { n: DASH_TENDER, col: 1, row: 1, x: 36, y: 40, rim: RIM },
-  { n: RACK_TENDER, col: 1, row: 2, x: 134, y: 30, rim: RIM_LIGHT },
+  { n: RACK_TENDER, col: 1, row: 2, x: 142, y: 30, rim: RIM_LIGHT },
   ...IT_DESKS.map(d => ({ n: d.who, col: d.col, row: 1, x: d.x + SEAT.x, y: d.y + SEAT.y, rim: RIM_LIGHT })),
 ]
 // The coffee cup stands on the last desk's top surface (desk sprite rows 12 to 24): its opaque rows are 0 to 6.
@@ -800,9 +800,9 @@ function itRoom({ people = true, outline = true } = {}) {
   for (const x of [20, 128]) cv.box(x, 0, 28, 2, '#FFF6D8')
 
   // ---- left zone: one person at the monitoring wall. The big screen: three panels, the left one a graph.
-  cv.box(4, 3, 80, 33, P.outline)
-  cv.box(5, 4, 78, 31, '#10152B')
-  cv.box(5, 4, 78, 1, '#4A5585')
+  cv.box(4, 3, 68, 33, P.outline)
+  cv.box(5, 4, 66, 31, '#10152B')
+  cv.box(5, 4, 66, 1, '#4A5585')
   // Panel 1: a line chart (the marker line on its own background), a wave that
   // repeats every 16 cells so the shader can scroll it.
   cv.litBox(GRAPH_PANEL.x, GRAPH_PANEL.y, GRAPH_PANEL.w, GRAPH_PANEL.h, GRAPH_BG)
@@ -814,14 +814,14 @@ function itRoom({ people = true, outline = true } = {}) {
   }
   cv.text('CPU', 12, 10, '#8FA3D6', 'litPx')
   // Panel 2: bars. Panel 3: status lights and text lines.
-  cv.litBox(61, 8, 22, 11, '#13203A')
-  ;[5, 8, 4, 9, 6].forEach((h, i) => cv.litBox(63 + i * 4, 18 - h, 3, h, '#E0A53A'))
-  cv.litBox(61, 21, 22, 11, '#13203A')
+  cv.litBox(45, 8, 22, 11, '#13203A')
+  ;[5, 8, 4, 9, 6].forEach((h, i) => cv.litBox(47 + i * 4, 18 - h, 3, h, '#E0A53A'))
+  cv.litBox(45, 21, 22, 11, '#13203A')
   for (let r = 0; r < 3; r++) {
-    cv.litBox(63, 23 + r * 3, 2, 2, r === 1 ? '#E0A53A' : '#5FD08A')
-    cv.litBox(67, 23 + r * 3, 8 + r * 3, 1, '#4A5585')
+    cv.litBox(47, 23 + r * 3, 2, 2, r === 1 ? '#E0A53A' : '#5FD08A')
+    cv.litBox(51, 23 + r * 3, 8 + r * 3, 1, '#4A5585')
   }
-  cv.blit('furniture/PLANT.png', 64, 40)
+  cv.blit('furniture/PLANT.png', 56, 40)
 
   // The people are in the lit layer, each with a one-cell rim.
   const rim = person => {
@@ -841,20 +841,20 @@ function itRoom({ people = true, outline = true } = {}) {
     }
   }
   // ---- right zone: the engineers. Racks along the wall: three, the middle one open, LEDs in the marker colour.
-  rack(cv, 116, 6, false, m)
-  rack(cv, 142, 6, true, m)
-  rack(cv, 168, 6, false, m)
+  rack(cv, 120, 6, false, m)
+  rack(cv, 146, 6, true, m)
+  rack(cv, 172, 6, false, m)
 
   // Tidy cables: a tray along the top of the racks, drops, and floor trunking.
-  cv.box(114, 3, 76, 2, P.steelLo)
+  cv.box(118, 3, 72, 2, P.steelLo)
   const cables = ['#3F6BFF', '#F2C94C', '#FF8A5C', '#5FD08A']
   cables.forEach((c, i) => {
-    cv.box(121 + i, 5, 1, 3, c)
-    cv.box(173 + i, 5, 1, 3, c)
+    cv.box(125 + i, 5, 1, 3, c)
+    cv.box(177 + i, 5, 1, 3, c)
   })
-  cv.box(112, 56, 76, 3, P.dark)
-  cv.box(112, 56, 76, 1, '#3D4770')
-  ;[122, 148, 174].forEach((x, i) => {
+  cv.box(118, 56, 72, 3, P.dark)
+  cv.box(118, 56, 72, 1, '#3D4770')
+  ;[126, 152, 178].forEach((x, i) => {
     cables.slice(0, 3).forEach((c, k) => cv.box(x + k * 2, 50, 1, 6, c))
     cv.box(x + 6, 50, 1, 6, cables[(i + 1) % 4])
   })
@@ -869,7 +869,6 @@ function itRoom({ people = true, outline = true } = {}) {
   // A coffee cup on the last desk's top surface, a plant by the wall and a big one in the corner.
   cv.blit('furniture/COFFEE.png', COFFEE_AT.x, COFFEE_AT.y)
   cv.blit('furniture/PLANT.png', 172, 66)
-  cv.blit('furniture/LARGE_PLANT.png', 158, 124)
 
   return serialize(cv, {
     bg: IROOM_DAY.wall,

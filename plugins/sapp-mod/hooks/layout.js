@@ -26,14 +26,23 @@ const FAR = 4000
 const TILE_COLS = 30
 const TILE_ROWS = 24
 
-// Option A: a fixed integer scale. Option B: the largest whole scale at which a zone
-// still fits its gutter and the room still fits the window's height, never above `max`.
+// A fixed integer scale: `cells` CSS px for each sprite cell, whatever the window. `inset` and `top` move the room right and down
+// (CSS px): the left zone starts past the sidebar and the room starts under the title bar.
 export const FIXED = { mode: 'fixed', cells: 4 }
 // The dots are a picture of 136 rows, centred on the window's height.
 export const DOT_ROWS = 136
-export const CAPPED = { mode: 'capped', max: 6, min: 2 }
-// The option the mod ships.
-export const SCALE = FIXED
+// The geometry measured on a real Desktop window (Code tab, sidebar open), in CSS px: the sidebar is 283 wide and opaque,
+// the title bar 40 tall, the chat column 768 wide and centred in the panel to the right of the sidebar. The Backdrop
+// itself spans the whole window, under both.
+export const SIDEBAR = 283
+export const TITLEBAR = 40
+export const CHAT = 768
+export const INSET = SIDEBAR + 3
+export const TOP = TITLEBAR + 4
+// What the mod ships: 3 px a cell, the left zone from the sidebar's edge, the room under the title bar. A room is composed
+// 74 cells wide a side (222 px), which fits the 228 px gutter beside the chat column at 1506 wide with the sidebar open.
+export const D13 = { mode: 'fixed', cells: 3, inset: INSET, top: TOP }
+export const SCALE = D13
 
 const RECT = /M(-?\d+) (-?\d+)h(\d+)v(\d+)h-\d+z/g
 const rects = d => [...d.matchAll(RECT)].map(m => ({ x: +m[1], y: +m[2], w: +m[3], h: +m[4] }))
@@ -43,72 +52,52 @@ const draw = list => list.map(r => `M${r.x} ${r.y}h${r.w}v${r.h}h-${r.w}z`).join
 const WALL_UNITS = WALL_ROWS * UNIT
 // The rects of the left zone. A room rect of the wall that touches the cut runs on toward the middle;
 // the floor is left to the tiles, which `tiles` draws.
-const leftZone = (list, cut, room) =>
+// `out` (an option with an inset or a top offset): a wall band that touches the left edge or the top runs on past it,
+// so the inset and the title bar show wall and not the bare background.
+const leftZone = (list, cut, room, out = {}) =>
   list
     .filter(r => r.x < cut && !(room && r.y >= WALL_UNITS))
     .map(r => {
       const reach = room && r.x + r.w >= cut ? cut + FAR : Math.min(r.x + r.w, cut)
-      return { x: r.x, y: r.y, w: reach - r.x, h: r.h }
+      const x = room && out.left && r.x === 0 ? -FAR : r.x
+      const y = room && out.up && r.y === 0 ? -FAR : r.y
+      return { x, y, w: reach - x, h: r.h + (r.y - y) }
     })
-const rightZone = (list, cut, room) =>
+const rightZone = (list, cut, room, out = {}) =>
   list
     .filter(r => r.x + r.w > cut && !(room && r.y >= WALL_UNITS))
     .map(r => {
       const start = room && r.x <= cut ? cut - FAR : Math.max(r.x, cut)
-      return { x: start, y: r.y, w: r.x + r.w - start, h: r.h }
+      const y = room && out.up && r.y === 0 ? -FAR : r.y
+      return { x: start, y, w: r.x + r.w - start, h: r.h + (r.y - y) }
     })
 
 // The floor, tile by tile, in scene units, from the window's centre: `.fb` underneath and `.fa` on the tiles
 // the room paints with it (tile column i, row j: `.fa` where i + j is odd, as paintRoom does). One checker runs
 // across the whole width, with a tile edge on the centre line, so no two tiles meet badly at any window width:
 // a floor counted from each edge instead breaks the pattern wherever the width is not a whole number of tiles.
-const floor = () => {
+const floor = (rows = TILE_ROWS, cols = TILE_COLS) => {
   const size = TILE * UNIT
   const odd = []
-  for (let j = 0; j < TILE_ROWS; j++) {
-    for (let i = -TILE_COLS; i < TILE_COLS; i++) {
+  for (let j = 0; j < rows; j++) {
+    for (let i = -cols; i < cols; i++) {
       if ((((i + j) % 2) + 2) % 2 === 1) odd.push({ x: i * size, y: WALL_UNITS + j * size, w: size, h: size })
     }
   }
   return (
-    `<path class="fb" d="${draw([{ x: -FAR, y: WALL_UNITS, w: 2 * FAR, h: TILE_ROWS * size }])}"/>` +
+    `<path class="fb" d="${draw([{ x: -FAR, y: WALL_UNITS, w: 2 * FAR, h: rows * size }])}"/>` +
     `<path class="fa" d="${draw(odd)}"/>`
   )
 }
 
-// The whole scale rule, as the CSS bands and the shaders share it: the whole scale k fits when
-// the gutter holds the widest zone and the window is as tall as the room.
-export const scaleFor = (option, [w, h], zoneCells, rows = GRID_H) => {
-  if (option.mode === 'fixed') return option.cells
-  const fit = Math.min((w - COLUMN) / 2 / zoneCells, h / rows)
-  return Math.max(option.min, Math.min(option.max, Math.floor(fit)))
-}
-
 // `middle`: rows of a picture centred on the window's height (the dots); 0 puts the top of the picture at the window's top.
-const place = (k, side, middle = 0) => `translate(${side === 'right' ? -GRID_W * k : 0} ${-(middle / 2) * k}) scale(${k / UNIT})`
-
-// The same placement as a CSS value, which wants commas and units where the attribute takes spaces.
-const placeCss = (k, side, middle = 0) => `translate(${side === 'right' ? -GRID_W * k : 0}px,${-(middle / 2) * k}px) scale(${k / UNIT})`
-
-// The size rules of option B: from the smallest scale up, each band wins over the one before.
-const bands = (option, zoneCells, rows, middle) => {
-  if (option.mode !== 'capped') return ''
-  let css = ''
-  for (let k = option.min + 1; k <= option.max; k++) {
-    css +=
-      `@media (min-width:${COLUMN + 2 * zoneCells * k}px) and (min-height:${rows * k}px){` +
-      `.pf{transform:scale(${k / UNIT})}.pl{transform:${placeCss(k, 'left', middle)}}.pr{transform:${placeCss(k, 'right', middle)}}}`
-  }
-  return css
-}
-
-const startK = option => (option.mode === 'fixed' ? option.cells : option.min)
+const place = (k, side, middle = 0, inset = 0, top = 0) => `translate(${side === 'right' ? -GRID_W * k : inset} ${middle ? -(middle / 2) * k : top}) scale(${k / UNIT})`
 
 // `left`, `right`: the markup of each zone, in scene units; `lit`: the same for what is drawn over the
 // veil. `middle`: rows of a picture that sits on the window's vertical middle (the dots); else the room's top is the window's top.
-const frame = ({ style, floor: tiles = '', left, right, litLeft, litRight, veil, zoneCells, option, rows = GRID_H, middle = 0 }) => {
-  const k = startK(option)
-  const at = side => place(k, side, middle)
+const frame = ({ style, floor: tiles = '', left, right, litLeft, litRight, veil, option, middle = 0 }) => {
+  const k = option.cells
+  const at = side => place(k, side, middle, option.inset ?? 0, option.top ?? 0)
   const centre = middle > 0
   const zone = (side, inner) =>
     side === 'left'
@@ -116,9 +105,9 @@ const frame = ({ style, floor: tiles = '', left, right, litLeft, litRight, veil,
       : `<svg x="50%" width="50%" height="100%"><svg x="100%" y="${centre ? '50%' : 0}" overflow="visible"><g class="pr" transform="${at('right')}">${inner}</g></svg></svg>`
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" shape-rendering="crispEdges">` +
-    `<style>${style}${bands(option, zoneCells, rows, middle)}</style>` +
+    `<style>${style}</style>` +
     `<rect class="bg" width="100%" height="100%"/>` +
-    (tiles ? `<svg x="50%" overflow="visible"><g class="pf" transform="scale(${k / UNIT})">${tiles}</g></svg>` : '') +
+    (tiles ? `<svg x="50%" overflow="visible"><g class="pf" transform="${option.top ? `translate(0 ${option.top}) ` : ''}scale(${k / UNIT})">${tiles}</g></svg>` : '') +
     zone('left', left) +
     zone('right', right) +
     (veil ? `<rect class="veil" width="100%" height="100%"/>` : '') +
@@ -144,8 +133,9 @@ export const frameScene = (svg, { left, right }, option = SCALE) => {
     for (const [, attr, d] of markup.matchAll(PATH)) {
       const list = rects(d)
       const own = isRoom && room.has(attr)
-      const l = draw(leftZone(list, cl, own))
-      const r = draw(rightZone(list, cr, own))
+      const edge = { left: (option.inset ?? 0) > 0, up: (option.top ?? 0) > 0 }
+      const l = draw(leftZone(list, cl, own, edge))
+      const r = draw(rightZone(list, cr, own, edge))
       if (l) out.left += `<path ${attr} d="${l}"/>`
       if (r) out.right += `<path ${attr} d="${r}"/>`
     }
@@ -155,17 +145,17 @@ export const frameScene = (svg, { left, right }, option = SCALE) => {
   const over = paths(lit, false)
   return frame({
     style,
-    floor: floor(),
+    // Smaller cells need more tiles to reach the window's edges: 44 rows and 40 columns cover 2800 px at 2 px a cell.
+    floor: option.cells < 4 ? floor(44, 40) : floor(),
     left: main.left,
     right: main.right,
     litLeft: over.left,
     litRight: over.right,
     veil: true,
-    zoneCells: Math.max(left, GRID_W - right),
     option,
   })
 }
 
 // Zones drawn by code (the dots): `left` and `right` are markup in scene units, already cut.
-export const frameCode = ({ style, left, right, pieceCells }, option = SCALE) =>
-  frame({ style, left, right, veil: false, zoneCells: pieceCells, option, rows: DOT_ROWS, middle: DOT_ROWS })
+export const frameCode = ({ style, left, right }, option = SCALE) =>
+  frame({ style, left, right, veil: false, option, middle: DOT_ROWS })

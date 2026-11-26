@@ -206,7 +206,7 @@ test('the IT room paints the graph panel in the colour the shader hides the rest
   // The wave repeats every 16 cells (64 units): the line paints the same row of cells one period apart.
   const line = IT_SVG.match(new RegExp(`<path fill="${MARKERS.it.graph}" d="([^"]*)"`))[1]
   const rows = [...line.matchAll(/M(\d+) (\d+)h4v(\d+)h-4z/g)].map(m => `${Number(m[1]) % 64}/${m[2]}`)
-  assert.ok(rows.length > 30)
+  assert.ok(rows.length > 24)
   assert.ok(rows.filter(r => r.startsWith('0/')).length >= 1)
 })
 
@@ -253,8 +253,8 @@ const sceneXOf = source => {
   const expr = source.match(/const sceneX = (.*)$/m)[1].replace(/p\.uv\.x/g, 'uvx').replace(/size\.x/g, 'size[0]').replace(/size\.y/g, 'size[1]')
   return new Function('uvx', 'size', 'max', 'min', `return ${expr}`)
 }
-// The uv x at which a window of this width shows scene x: layout.js anchors the left piece to the left edge at 4 points a cell, 1 unit a point.
-const uvXOf = (sceneX, [w]) => sceneX / w
+// The uv x at which a window of this width shows scene x: layout.js draws the left zone from 286 points in at 3 points a cell, so 4 units are 3 points.
+const uvXOf = (sceneX, [w]) => ((sceneX * 3) / 4 + 286) / w
 const WINDOWS = [[768, 544], [1512, 945], [1000, 1400], [2400, 600]]
 
 test('the shader\'s scene-x line maps a uv back to the scene x at every window shape; the old centred slice fit turns it red', () => {
@@ -266,6 +266,9 @@ test('the shader\'s scene-x line maps a uv back to the scene x at every window s
   const slice = '(p.uv.x * size.x - size.x / 2) / max(size.x / 768, size.y / 544) + 384'
   assert.equal(check(sceneXOf(source.replace('p.uv.x * size.x', slice))), false)
   assert.equal(check(sceneXOf(source.replace('p.uv.x * size.x', 'p.uv.x * size.x + 4'))), false)
+  // ...and so does forgetting the inset (the zone starts past the sidebar) or the 3 points a cell.
+  assert.equal(check(sceneXOf(source.replace('- 286', '- 0'))), false)
+  assert.equal(check(sceneXOf(source.replace('* 4) / 3', '* 4) / 4'))), false)
 })
 
 for (const mode of ['light', 'dark']) {
@@ -307,9 +310,9 @@ for (const mode of ['light', 'dark']) {
     const near = [...rgb(GRAPH_BG)].map((v, i) => v + [7, 5, 6][i])
     assert.ok(dist(near, rgb(GRAPH_BG)) > 0.03 && dist(near, rgb(GRAPH_BG)) < 0.05)
     const withNear = new Map(picture)
-    withNear.set('66,16', near)
+    withNear.set('46,16', near)
     assert.deepEqual(painted(withNear, { byPosition: true }), [])
-    assert.ok(painted(withNear, { byPosition: false }).includes('66,16'))
+    assert.ok(painted(withNear, { byPosition: false }).includes('46,16'))
   })
 }
 
