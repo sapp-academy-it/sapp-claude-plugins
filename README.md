@@ -62,6 +62,10 @@ Cần Claude Code có mod (từ 2.1.286); đã kiểm với 2.1.332.
 
 Máy đã cài `sapp-brand@sapp` cần gỡ nó (`/plugin uninstall sapp-brand@sapp`) rồi cài `sapp-mod@sapp`.
 
+Quản trị viên: managed settings nào liệt kê `sapp-brand@sapp` trong `enabledPlugins` hoặc `appendPlugins` phải đổi sang `sapp-mod@sapp` và đổi `ref` sang SHA merge mới.
+
+Lựa chọn giao diện đã lưu không được mang sang: gỡ plugin xóa dữ liệu trong `~/.claude/plugins/data/{id}/` (trừ khi dùng `--keep-data`) và mã plugin cũng đổi. Sau khi cài, chạy lại `/sapp-theme`.
+
 ## Triển khai cho cả tổ chức
 
 Quản trị viên dán đoạn sau vào managed settings (claude.ai admin console hoặc `managed-settings.json`):
@@ -93,7 +97,7 @@ Cấu trúc theo [Manage mods for your organization](https://code.claude.com/doc
 ```text
 npm test                                  # node --test, không cần mạng
 claude plugin validate .                  # marketplace
-claude plugin validate plugins/sapp-mod # plugin
+claude plugin validate plugins/sapp-mod   # plugin
 npm run build:scene                       # sinh lại ba cảnh pixel (hooks/scene*.js) từ sprite
 npm run preview                           # dựng lại preview.png (cần rsvg-convert và ImageMagick 7)
 ```

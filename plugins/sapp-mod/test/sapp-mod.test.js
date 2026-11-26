@@ -410,6 +410,16 @@ test('the Backdrop hook leaves the terminal, another mod\'s scene and a scene we
   for (const out of [terminal, otherScene, otherPlugin, oldName, removed]) assert.ok(out.passed)
 })
 
+test('the manifest name, the marketplace entry and the Backdrop guard all say sapp-mod', async () => {
+  const manifest = JSON.parse(readFileSync(new URL('../.claude-plugin/plugin.json', import.meta.url), 'utf8'))
+  const market = JSON.parse(readFileSync(new URL('../../../.claude-plugin/marketplace.json', import.meta.url), 'utf8'))
+  assert.equal(manifest.name, 'sapp-mod')
+  assert.deepEqual(market.plugins.map(p => p.name), ['sapp-mod'])
+  // The engine passes the manifest name as props.plugin, so the guard must accept exactly it.
+  const out = await render(registered(), 'Backdrop', { surface: 'desktop', props: { scene: 'sapp-dots', plugin: manifest.name } })
+  assert.equal(out.type, 'Svg')
+})
+
 // ---- what the mod hooks and calls -------------------------------------------------------
 
 test('register() hooks exactly session.start, command.run, and the ui.render pair', () => {
