@@ -8,7 +8,7 @@ import { THEMES, dotsSvg, pickTheme, themeOrDefault } from '../hooks/themes.js'
 import { tokens } from '../hooks/tokens.js'
 import { makeColors } from '../hooks/make-colors.js'
 import { buildSceneModule } from '../scripts/build-scene.mjs'
-import { registered, render, runCommand, startSession } from './harness.js'
+import { registered, render, runCommand, startSession, tip } from './harness.js'
 
 // Events that read or change what Claude does, or what the person typed: whole
 // families by prefix, plus these exact names.
@@ -306,7 +306,7 @@ test('the credit line survives a build where $.theme.set throws, and it is set f
   assert.ok(result.passed)
   assert.deepEqual(
     engine.calls.map(c => c.path),
-    ['ui.status', 'store.get', 'theme.set', 'command.register'],
+    ['ui.status', 'store.get', 'theme.set', 'command.register', 'command.register', 'store.get', 'store.set', 'ui.toast'],
   )
   assert.deepEqual(engine.calls[0].args, ['Tạo bởi SAPP IT Department, © 2026'])
 })
@@ -422,16 +422,19 @@ test('the manifest name, the marketplace entry and the Backdrop guard all say sa
 
 // ---- what the mod hooks and calls -------------------------------------------------------
 
-test('register() hooks exactly session.start, command.run, and the ui.render pair', () => {
+test('register() hooks exactly session.start, the two commands, ui.tip, and the Backdrop, Spinner and Pane renders', () => {
   const engine = registered()
 
   assert.deepEqual(
     engine.hooks.map(h => h.event + JSON.stringify(h.matcher)).sort(),
     [
+      'command.run{"command":"sapp-help"}',
       'command.run{"command":"sapp-theme"}',
       'session.start' + 'null',
       'ui.render{"component":"Backdrop"}',
+      'ui.render{"component":"Pane"}',
       'ui.render{"component":"Spinner"}',
+      'ui.tip' + 'null',
     ],
   )
 })
@@ -457,12 +460,15 @@ test('running every hook makes no call on $ beyond the pinned set', async () => 
   await startSession(engine)
   await runCommand(engine, 'sapp-theme', '')
   await runCommand(engine, 'sapp-theme', 'it-room')
+  await runCommand(engine, 'sapp-help', '')
+  await render(engine, 'Pane', { surface: 'desktop', requestId: 'sapp-help', props: {} })
+  await tip(engine)
   await render(engine, 'Backdrop', { surface: 'desktop', props: { scene: 'sapp-acca-classroom', plugin: 'sapp-mod' } })
   await render(engine, 'Spinner', { surface: 'desktop', props: { word: 'x', message: null, suffix: '…', mode: 'thinking' } })
   const used = [...new Set(engine.calls.map(c => c.path))].sort()
 
   // No $.fs, $.process, $.http, $.env, $.tool, $.model, $.mcp, $.prompt, $.session.
-  assert.deepEqual(used, ['command.register', 'store.get', 'store.set', 'theme.set', 'ui.resolve', 'ui.status'])
+  assert.deepEqual(used, ['command.register', 'store.get', 'store.set', 'theme.set', 'ui.close', 'ui.open', 'ui.resolve', 'ui.status', 'ui.toast'])
 })
 
 // ---- review round 1 ------------------------------------------------------------------------

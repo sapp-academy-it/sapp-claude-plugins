@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test \"plugins/sapp-mod/test/*.test.js\"",
+    "build:guide": "node plugins/sapp-mod/scripts/build-guide.mjs",
     "build:scene": "node plugins/sapp-mod/scripts/build-scene.mjs",
     "preview": "node plugins/sapp-mod/scripts/render-preview.mjs"
   }

@@ -40,6 +40,9 @@ export function makeEngine({ throwOn, store = new Map() } = {}) {
                       return {
                         Svg: props => ({ type: 'Svg', props }),
                         Shader: props => ({ type: 'Shader', props }),
+                        Box: props => ({ type: 'Box', props }),
+                        Markdown: props => ({ type: 'Markdown', props }),
+                        Button: props => ({ type: 'Button', props }),
                       }
                     }
                   : ui[name],
@@ -67,14 +70,19 @@ export const find = (engine, event, matcher) =>
 
 const next = async e => ({ passed: e })
 
-export async function startSession(engine) {
+export async function startSession(engine, event = { cwd: '/', surface: 'desktop', isInteractive: true }) {
   const hook = find(engine, 'session.start')
-  return hook.fn(engine.$, { cwd: '/', surface: 'desktop' }, next)
+  return hook.fn(engine.$, event, next)
 }
 
 export async function render(engine, component, e) {
   const hook = find(engine, 'ui.render', { component })
   return hook.fn(engine.$, e, next)
+}
+
+export async function tip(engine, candidates = []) {
+  const hook = find(engine, 'ui.tip')
+  return hook.fn(engine.$, { candidates }, next)
 }
 
 export async function runCommand(engine, command, args) {
