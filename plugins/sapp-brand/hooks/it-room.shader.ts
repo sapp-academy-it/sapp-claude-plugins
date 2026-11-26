@@ -49,8 +49,10 @@ const view = picture(p => {
   const shift = mod((time * 2.5 * calm * cell) / size.x, period)
   const a = 1 - smoothstep(0.05, 0.14, length(scene.sample(p.uv + vec2(shift, 0)).rgb - line))
   const b = 1 - smoothstep(0.05, 0.14, length(scene.sample(p.uv + vec2(shift - period, 0)).rgb - line))
-  const live = max(a, b)
+  // Only inside the panel: a pixel that is the panel's own back colour or the resting line.
   const resting = 1 - smoothstep(0.05, 0.14, length(c.rgb - line))
+  const inside = max(resting, 1 - smoothstep(0.05, 0.14, length(c.rgb - back)))
+  const live = max(a, b) * inside
   const graph = max(live, resting)
 
   const dimColor = vec3(0.106, 0.125, 0.22)

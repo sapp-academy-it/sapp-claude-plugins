@@ -96,6 +96,8 @@ export const MARKERS = {
   it: { led: '#3DFF7A', status: '#B4FF3D', graph: '#4FD1FF' },
 }
 // The graph panel's own background: the it-room shader paints this over the resting line.
+// The classroom board face is painted above the veils, like its ink, so the ink always has the same contrast on it.
+export const BOARD_FACE = '#E6E2DE'
 export const GRAPH_BG = '#0A1F3A'
 
 // Palette shared with the sprites (the whiteboard, the desk, the clock).
@@ -448,10 +450,11 @@ function classroom() {
   const face = boardFrame(cv, 54, 3, 68, 29)
   const fx = face.x
   const fy = face.y
+  cv.litBox(face.x, face.y, face.w, face.h, BOARD_FACE)
   cv.word5('ACCA', fx + 3, fy + 2, m.ink, 'litPx')
   cv.text('A=L+E', fx + 3, fy + 13, m.ink, 'litPx')
-  cv.box(fx + 28, fy + 2, 1, 20, P.paperSh)
-  cv.box(fx + 29, fy + 9, 31, 1, P.paperSh)
+  cv.litBox(fx + 28, fy + 2, 1, 20, P.paperSh)
+  cv.litBox(fx + 29, fy + 9, 31, 1, P.paperSh)
   cv.text('A', fx + 36, fy + 3, m.ink, 'litPx')
   cv.text('L+E', fx + 46, fy + 3, m.ink, 'litPx')
   cv.text('120', fx + 32, fy + 12, m.ink, 'litPx')

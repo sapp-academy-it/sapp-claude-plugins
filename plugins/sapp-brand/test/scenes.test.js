@@ -149,13 +149,30 @@ test('the Backdrop hook plays the shader of each theme over its own Svg, and non
   assert.equal((await draw('sapp-dots')).type, 'Svg')
 })
 
-test('no shader sets a rate above 3 cycles a second: every sin() in time runs under 6 rad/s', () => {
-  for (const f of readdirSync(hooks).filter(x => x.endsWith('.shader.ts'))) {
-    const source = readFileSync(new URL(f, hooks), 'utf8')
-    for (const [, rate] of source.matchAll(/time \* ([\d.]+)/g)) assert.ok(Number(rate) < 3, `${f}: time * ${rate}`)
+// Every shader's motion rates in rad/s, read numerically: `time * N` is N rad/s; `time / N` is a
+// period of N seconds (2 pi / N rad/s); `sin(t * N)` runs t from 0 to 1 over the rising part of
+// a `fract(time / period)` round, so it is N / (rising share * period) rad/s.
+function rates(source) {
+  const out = []
+  for (const [, n] of source.matchAll(/time \* ([\d.]+)/g)) out.push(Number(n))
+  for (const [, n] of source.matchAll(/time \/ ([\d.]+)/g)) out.push((2 * Math.PI) / Number(n))
+  for (const [, n] of source.matchAll(/sin\(t \* ([\d.]+)\)/g)) {
+    const period = Number(source.match(/fract\(time \/ ([\d.]+)\)/)[1])
+    const share = Number(source.match(/phase \/ ([\d.]+)/)[1])
+    out.push(Number(n) / (share * period))
   }
-  // Control: the scan finds the rates.
-  assert.ok(readFileSync(new URL('it-room.shader.ts', hooks), 'utf8').includes('time * 1.3'))
+  return out
+}
+
+test('no shader runs a motion faster than 6 rad/s (about 1 cycle a second, far under the 3 a second flash limit)', () => {
+  for (const f of readdirSync(hooks).filter(x => x.endsWith('.shader.ts'))) {
+    for (const rate of rates(readFileSync(new URL(f, hooks), 'utf8'))) assert.ok(rate < 6, `${f}: ${rate} rad/s`)
+  }
+  // Controls: the scan sees all three forms, and it fails on a fast one.
+  assert.deepEqual(rates('sin(time * 1.3)'), [1.3])
+  assert.ok(Math.abs(rates('fract(time / 9) phase / 0.55 sin(t * 6)').at(-1) - 6 / 4.95) < 1e-9)
+  assert.ok(rates('x = time / 0.5')[0] > 6)
+  assert.ok(rates('sin(time * 40)')[0] >= 6)
 })
 
 // ---- the new Vietnamese titles ---------------------------------------------------------------
@@ -178,11 +195,11 @@ test('the new titles match in any case, with and without accents, and by number 
     ['5', 'it-room'],
     ['6', 'it-blueprint'],
     ['it-room', 'it-room'],
+    ['  phong it ', 'it-room'],
   ]
   for (const [text, id] of picks) assert.equal(pickTheme(text)?.id, id, text)
   // Refusals: a near miss, a part of a title and another team's word match nothing.
-  for (const bad of ['phong', 'ban ve', 'marketing', 'phong it ', 'phong i', 'bang y tuong 2', '0', '9']) {
-    if (bad === 'phong it ') continue
+  for (const bad of ['phong', 'ban ve', 'marketing', 'phong i', 'bang y tuong 2', '0', '9']) {
     assert.equal(pickTheme(bad), undefined, bad)
   }
 })
@@ -216,4 +233,82 @@ test('the IT room paints the graph panel in the colour the shader hides the rest
   const rows = [...line.matchAll(/M(\d+) (\d+)h4v(\d+)h-4z/g)].map(m => `${Number(m[1]) % 64}/${m[2]}`)
   assert.ok(rows.length > 40)
   assert.ok(rows.filter(r => r.startsWith('0/')).length >= 1)
+})
+
+// ---- the lit layer as cells ---------------------------------------------------------------------
+
+// The lit paths of a scene as a map of 'x,y' (cell) to colour.
+function litCells(svg) {
+  const cells = new Map()
+  for (const [, fill, d] of svg.slice(svg.indexOf('<rect class="veil"')).matchAll(/<path fill="(#[0-9A-Fa-f]{6})" d="([^"]*)"/g)) {
+    for (const [, x, y, w, h] of d.matchAll(/M(\d+) (\d+)h(\d+)v(\d+)h-\d+z/g)) {
+      for (let j = 0; j < h / 4; j++) for (let i = 0; i < w / 4; i++) cells.set(`${x / 4 + i},${y / 4 + j}`, fill.toUpperCase())
+    }
+  }
+  return cells
+}
+
+test('one scroll cycle of the monitoring graph paints only cells of its panel; without the mask it does not', () => {
+  const lit = litCells(IT_SVG)
+  const line = MARKERS.it.graph.toUpperCase()
+  const back = GRAPH_BG.toUpperCase()
+  const at = (x, y) => lit.get(`${x},${y}`)
+  const panel = new Set([...lit].filter(([, c]) => c === line || c === back).map(([k]) => k))
+  // What the shader does per cell and per scroll step: the line one step over, or one period over.
+  const painted = masked => {
+    const out = new Set()
+    for (let shift = 0; shift < 16; shift++) {
+      for (let y = 0; y < 136; y++) {
+        for (let x = 0; x < 192; x++) {
+          const live = at(x + shift, y) === line || at(x + shift - 16, y) === line
+          const inside = at(x, y) === line || at(x, y) === back
+          if (live && (!masked || inside)) out.add(`${x},${y}`)
+        }
+      }
+    }
+    return out
+  }
+
+  assert.ok(panel.size > 1000)
+  const withMask = painted(true)
+  assert.ok(withMask.size > 100)
+  assert.deepEqual([...withMask].filter(k => !panel.has(k)), [])
+  // Control: without the mask the same simulation leaks outside the panel.
+  assert.ok([...painted(false)].filter(k => !panel.has(k)).length > 100)
+})
+
+// ---- the board reads in every theme -----------------------------------------------------------------
+
+const luminance = hex => {
+  const [r, g, b] = rgb(hex).map(v => {
+    const c = v / 255
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+const contrast = (a, b) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+test('the board ink reads on the board face at 4.5 to 1 or more: day, dark window and night, both above every veil', () => {
+  const ink = MARKERS.classroom.ink.toUpperCase()
+  for (const [name, svg] of [['day (light and dark window)', SCENE_SVG], ['night', byId('acca-night').svg]]) {
+    const lit = litCells(svg)
+    const inkCells = [...lit].filter(([, c]) => c === ink).map(([k]) => k)
+    assert.ok(inkCells.length > 50, name)
+    // Both colours are in the lit layer, painted after every veil of the scene, so the veils cannot touch them.
+    assert.ok(svg.indexOf(`<path fill="${ink}"`) > svg.lastIndexOf('class="veil"'), name)
+    if (name === 'night') assert.ok(svg.indexOf(`<path fill="${ink}"`) > svg.indexOf('class="dusk"'))
+    const faces = new Set()
+    for (const k of inkCells) {
+      const [x, y] = k.split(',').map(Number)
+      for (const n of [`${x - 1},${y}`, `${x + 1},${y}`, `${x},${y - 1}`, `${x},${y + 1}`]) if (lit.has(n) && lit.get(n) !== ink) faces.add(lit.get(n))
+    }
+    assert.ok(faces.size >= 1, name)
+    for (const face of faces) assert.ok(contrast(ink, face) >= 4.5, `${name}: ${face} vs ${ink} is ${contrast(ink, face).toFixed(2)}`)
+  }
+  // Controls: the measure is live. The old arrangement, ink above and face under the dark veil, fails it.
+  assert.ok(contrast('#5B2BB0', '#E6E2DE') > 4.5)
+  assert.ok(contrast('#5B2BB0', '#2D2B27') < 4.5)
 })

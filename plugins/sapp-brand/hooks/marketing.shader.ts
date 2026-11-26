@@ -2,7 +2,7 @@
 // and never runs it as JavaScript. Every part is found in the Svg picture by its
 // own colour, so it follows the scene at any crop of the window.
 //
-// 1. KPI bars (mint #2EE59D): each bar swells a cell or two up and down, slowly, the
+// 1. KPI bars (mint #2EE59D): each bar grows a cell or two taller and back, slowly, the
 //    phase different bar to bar. Nothing here changes more than once a second.
 // 2. Ring light (#FFC21A): a warm halo breathing over about 9 seconds.
 // 3. A heart (#FF3E6C) lifts off the phone's screen every 9 seconds, floats up
@@ -46,8 +46,7 @@ const view = picture(p => {
   const own = 1 - smoothstep(0.05, 0.14, length(scene.sample(p.uv).rgb - bar))
   const swell = ((1.2 + 0.8 * sin(time * 0.8 * calm + p.uv.x * 16)) * cell) / size.y
   const up = 1 - smoothstep(0.05, 0.14, length(scene.sample(p.uv - vec2(0, swell)).rgb - bar))
-  const down = 1 - smoothstep(0.05, 0.14, length(scene.sample(p.uv + vec2(0, swell)).rgb - bar))
-  const grown = max(up, down) * (1 - own)
+  const grown = up * (1 - own)
 
   // The ring light's halo.
   const breath = 0.75 + 0.25 * sin(time * 0.7 * calm)
