@@ -42,12 +42,11 @@ export const dotsSvg = option => {
   const { left, right } = dotsArt()
   return frameCode(
     {
-    style:
-      '.bg{fill:#FAF8F3}.dot{fill:#FFB700;opacity:.55}' +
-      '@media (prefers-color-scheme: dark){.bg{fill:#1A1916}.dot{opacity:.32}}',
-    left: `<g class="dot">${left.join('')}</g>`,
-    right: `<g class="dot">${right.join('')}</g>`,
-      pieceCells: (DOT_SIDE_COLUMNS * 32) / 4,
+      style:
+        '.bg{fill:#FAF8F3}.dot{fill:#FFB700;opacity:.55}' +
+        '@media (prefers-color-scheme: dark){.bg{fill:#1A1916}.dot{opacity:.32}}',
+      left: `<g class="dot">${left.join('')}</g>`,
+      right: `<g class="dot">${right.join('')}</g>`,
     },
     option,
   )
@@ -91,9 +90,9 @@ const sappIt = makeColors({
 })
 
 // The two zones of every room, in sprite cells (the same numbers as ZONES in scripts/build-scene.mjs, a test
-// holds them together): the left zone is cells 0 to 88, the right zone cells 104 to 192, and layout.js draws
+// holds them together): the left zone is cells 0 to 74, the right zone cells 118 to 192, and layout.js draws
 // the empty room between them itself.
-const ZONES = { left: 88, right: 104 }
+const ZONES = { left: 74, right: 118 }
 export const CUTS = { classroom: ZONES, marketing: ZONES, it: ZONES }
 
 const GLASS = { blur: 14, opacity: 0.72 }

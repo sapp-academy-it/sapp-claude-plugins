@@ -37,8 +37,8 @@ const ring = buffer({ scale: 0.25, filter: 'mipmap' }, p => {
 
 const view = picture(p => {
   const calm = 1 - still
-  // One grid cell, in points: layout.js draws the room at 4 points a cell (option A, a fixed scale).
-  const cell = 4
+  // One grid cell, in points: layout.js draws the room at 3 points a cell (a fixed scale).
+  const cell = 3
 
   // The bars swell.
   const bar = vec3(0.18, 0.898, 0.616)
