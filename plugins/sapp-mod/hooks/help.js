@@ -4,10 +4,6 @@ import { GUIDE_MARKDOWN } from './guide.js'
 export const ISSUES_URL = 'https://github.com/sapp-academy-it/sapp-claude-plugins/issues'
 export const PANE_ID = 'sapp-help'
 export const HELP_TOAST = 'Gõ /sapp-help để xem hướng dẫn dùng Claude tại SAPP'
-export const HELP_TIP = 'Gõ /sapp-help để xem hướng dẫn dùng Claude tại SAPP (5 quy tắc ASK – CONTEXT – VERIFY – OUTPUT – TEST)'
-export const HELP_TIP_ID = 'sapp-help'
-// The own tip shows on every 4th tip the engine asks for; the other 3 are the engine's own.
-export const TIP_EVERY = 4
 // The one key that remembers the pointer toast was shown: at most one toast ever per install.
 export const TOAST_KEY = 'help-toast-shown'
 

@@ -5,10 +5,10 @@ import { join } from 'node:path'
 import { test } from 'node:test'
 
 import { GUIDE_MARKDOWN } from '../hooks/guide.js'
-import { HELP_MARKDOWN, HELP_TIP, HELP_TOAST, ISSUES_URL, TOAST_KEY } from '../hooks/help.js'
+import { HELP_MARKDOWN, HELP_TOAST, ISSUES_URL, TOAST_KEY } from '../hooks/help.js'
 import { register } from '../hooks/register.js'
 import { buildGuideModule, parseSkill } from '../scripts/build-guide.mjs'
-import { find, registered, render, runCommand, startSession, tip } from './harness.js'
+import { find, registered, render, runCommand, startSession } from './harness.js'
 
 const SKILL = readFileSync(new URL('../skills/sapp-ai-guide/SKILL.md', import.meta.url), 'utf8')
 // The body of the SKILL.md, found here without the build script: what follows the closing --- line.
@@ -121,7 +121,7 @@ test('the card holds no e-mail address and no personal contact', () => {
   assert.equal(ISSUES_URL, 'https://github.com/sapp-academy-it/sapp-claude-plugins/issues')
 })
 
-// ---- the pointer: one toast ever, and a tip that rotates ---------------------------------------
+// ---- the pointer: one toast ever ---------------------------------------
 
 test('the pointer toast shows once, the flag is stored, and later sessions stay quiet', async () => {
   const store = new Map()
@@ -178,42 +178,6 @@ test('a toast that throws does not stop the session start', async () => {
 
   assert.ok(out.passed)
   assert.equal(engine.calls.some(c => c.path === 'command.register'), true)
-})
-
-test('the tip hook always lets the hooks below it run, on our turn too (other mods get their turn)', async () => {
-  const engine = registered()
-  const hook = find(engine, 'ui.tip')
-  let asked = 0
-  const next = async e => {
-    asked += 1
-    return { id: 'engine-tip' }
-  }
-  const answers = []
-  for (let i = 0; i < 4; i += 1) answers.push(await hook.fn(engine.$, { candidates: [] }, next))
-
-  assert.equal(asked, 4)
-  assert.deepEqual(answers.map(a => a.id), ['engine-tip', 'engine-tip', 'engine-tip', 'sapp-help'])
-})
-
-test('the spinner tip is ours on every 4th ask and the engine\'s own choice on the others', async () => {
-  const engine = registered()
-  const candidates = [{ id: 'engine-tip', source: 'shipped', priority: 0, sessionsSinceShown: null }]
-  const answers = []
-  for (let i = 0; i < 8; i += 1) answers.push(await tip(engine, candidates))
-
-  const ours = answers.map(a => a.id === 'sapp-help')
-  assert.deepEqual(ours, [false, false, false, true, false, false, false, true])
-  assert.deepEqual(answers[3], {
-    id: 'sapp-help',
-    text: 'Gõ /sapp-help để xem hướng dẫn dùng Claude tại SAPP (5 quy tắc ASK – CONTEXT – VERIFY – OUTPUT – TEST)',
-    label: 'SAPP',
-  })
-  // The others pass the engine's candidates on untouched.
-  assert.deepEqual(answers[0].passed.candidates, candidates)
-  // HELP_TIP is user-facing text; its length is checked against the engine's limits, not pinned.
-  // The limits of an own tip: id of letters, digits and . _ -, up to 64; text up to 500; label up to 40.
-  assert.match(answers[3].id, /^[A-Za-z0-9._-]{1,64}$/)
-  assert.ok(HELP_TIP.length <= 500 && answers[3].label.length <= 40)
 })
 
 // ---- the guide: one source, two forms ---------------------------------------------------------
