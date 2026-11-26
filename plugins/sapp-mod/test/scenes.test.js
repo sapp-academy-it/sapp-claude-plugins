@@ -44,7 +44,7 @@ test('every scene Svg: under 131072 characters, crispEdges, sized by its own box
     assert.ok(svg.length < 131072, `${id} ${svg.length}`)
     assert.ok(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" shape-rendering="crispEdges">'), id)
     assert.equal(svg.includes('preserveAspectRatio="xMidYMid slice"'), false, id)
-    // The flat picture kept for preview.png is still the 768 by 544 scene.
+    // The flat picture kept for preview.png is still the 768 by 800 scene.
     assert.ok(art.startsWith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 800" preserveAspectRatio="xMidYMid slice" shape-rendering="crispEdges">'), id)
     for (const [, name] of svg.matchAll(/\bid="([^"]*)"/g)) assert.match(name, /^[a-z]+(-[a-z]+)*$/, `${id} id ${name}`)
   }
@@ -415,44 +415,50 @@ function silhouetteContrast(svg, mode, person) {
 
 // RULE CHANGE. The seated engineers (person and chair together) used to be outlined so that the silhouette read at 3 to 1 against
 // its surround. The outline made the chair look lifted off the floor over the desk behind it, and the owner chose the room without
-// it. Seated people are decoration, not a marker or text, so the silhouette now only has to stay at or above what the room measures
-// today (the floors below are those measures rounded down, per seat and per window kind): a later change that sinks a seat further
-// into its surround fails here. The two people who stand keep the outline and the 3 to 1 of the test above; the board ink keeps 4.5 to 1.
+// it. Seated people are decoration, not a marker or text, so the silhouette no longer has to reach 3 to 1: where a floor can fail it
+// only has to stay at or above what the room measures today (the measure rounded down); the two people who stand keep the outline and
+// the 3 to 1 of the test above, and the board ink keeps 4.5 to 1.
+// A floor must be able to fail. The control below builds the same room with nobody seated (the chair alone) and requires that every
+// seat in every window kind with a floor scores under its floor there. In a dark window three of the four seats score no better
+// than their empty chair (1.15, 1.38 and 1.08 against 1.40, 1.46 and 1.45), so no floor can tell them from nothing: their dark
+// figures are NOT contrast-tested at all, and the test says so by asserting that they do not beat the empty chair.
 const SEATED_FLOOR = {
   light: { 1: 2.3, 4: 3.9, 0: 3.1, 5: 4.1 },
-  dark: { 1: 1.9, 4: 1.1, 0: 1.3, 5: 1.05 },
+  dark: { 1: 1.9 },
 }
 
-test('each seated engineer, person and chair together, stays at or above the measured floor against the surround, in a light and a dark window', () => {
+test('each seated engineer, person and chair together, stays at or above its floor where a floor can fail; the dark figures with none are not contrast-tested', () => {
   const seated = IT_PEOPLE.filter(person => chairCellsOf(person).size > 0)
+  const empty = buildItWithoutPeople()
 
   assert.equal(seated.length, 4)
   for (const mode of ['light', 'dark']) {
     for (const person of seated) {
       const value = silhouetteContrast(IT_SVG, mode, person)
-      assert.ok(value >= SEATED_FLOOR[mode][person.n], `${mode} char ${person.n} at ${person.x},${person.y}: ${value.toFixed(2)} under ${SEATED_FLOOR[mode][person.n]}`)
+      const bare = silhouetteContrast(empty, mode, person)
+      const floor = SEATED_FLOOR[mode][person.n]
+      if (floor === undefined) {
+        // No floor: the seat does not beat its empty chair, so any floor would pass for nobody sitting there.
+        assert.ok(value <= bare, `${mode} char ${person.n} beats its empty chair (${value.toFixed(2)} against ${bare.toFixed(2)}): give it a floor`)
+      } else {
+        assert.ok(value >= floor, `${mode} char ${person.n} at ${person.x},${person.y}: ${value.toFixed(2)} under ${floor}`)
+        // Control, every seat with a floor in its window kind: the empty chair does not reach the floor.
+        assert.ok(bare < floor, `${mode} char ${person.n}: the empty chair scores ${bare.toFixed(2)}, the floor ${floor} cannot fail`)
+      }
     }
   }
   // No outline is painted round a seat: the rim colours appear only round the two who stand.
   const standing = IT_PEOPLE.filter(person => chairCellsOf(person).size === 0)
   const lit = litCells(IT_SVG)
-  for (const person of seated) {
-    const around = [...personCells(person)].flatMap(k => {
-      const [x, y] = k.split(',').map(Number)
-      return [`${x - 1},${y}`, `${x + 1},${y}`, `${x},${y - 1}`, `${x},${y + 1}`]
-    })
-    assert.equal(around.some(k => [RIM, RIM_LIGHT].includes(lit.get(k))), false, `outline round char ${person.n}`)
-  }
-  for (const person of standing) {
-    const around = [...personCells(person)].flatMap(k => {
-      const [x, y] = k.split(',').map(Number)
-      return [`${x - 1},${y}`, `${x + 1},${y}`, `${x},${y - 1}`, `${x},${y + 1}`]
-    })
-    assert.equal(around.some(k => [RIM, RIM_LIGHT].includes(lit.get(k))), true, `no outline round standing char ${person.n}`)
-  }
-  // Control: the floors are live. A seat measured in a room with nobody in it (the chair drawn, no person) is under its floor.
-  const empty = buildItWithoutPeople()
-  assert.ok(seated.some(person => ['light', 'dark'].some(mode => silhouetteContrast(empty, mode, person) < SEATED_FLOOR[mode][person.n])))
+  const outlined = person =>
+    [...personCells(person)]
+      .flatMap(k => {
+        const [x, y] = k.split(',').map(Number)
+        return [`${x - 1},${y}`, `${x + 1},${y}`, `${x},${y - 1}`, `${x},${y + 1}`]
+      })
+      .some(k => [RIM, RIM_LIGHT].includes(lit.get(k)))
+  for (const person of seated) assert.equal(outlined(person), false, `outline round char ${person.n}`)
+  for (const person of standing) assert.equal(outlined(person), true, `no outline round standing char ${person.n}`)
 })
 
 // ---- seating, as the viz office seats a character ----------------------------------------------------------------

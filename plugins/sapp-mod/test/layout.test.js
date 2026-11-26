@@ -32,19 +32,52 @@ test('a sprite that straddles the cut is clipped at it, never stretched into the
   assert.deepEqual(pathsOf(svg, 'class="c0"'), ['M0 0h4200v40h-4200z', 'M-3600 0h4368v40h-4368z'])
 })
 
-test('the floor is tiled, not stretched: the floor rect of the scene is dropped, and each side gets tiles that alternate', () => {
+// Which tiles `.fa` paints, as 'column,row' (columns count from the window's centre, rows from the wall), read from the Svg.
+const oddTiles = svg => new Set([...pathsOf(svg, 'class="fa"')[0].matchAll(/M(-?\d+) (\d+)h64v64h-64z/g)].map(m => `${Number(m[1]) / 64},${(Number(m[2]) - 168) / 64}`))
+
+test('the floor is tiled, not stretched: the floor rect of the scene is dropped, and one checker of tiles runs out from the window centre', () => {
   const svg = frameScene(TOY, TOY_ZONES, FIXED)
 
   // The room colour below row 42 (the c2 rect at y 200) is not drawn from the scene.
   assert.deepEqual(pathsOf(svg, 'class="c2"'), [])
-  // Left: one base tile colour, then the odd tiles (column + row odd) of 64 units from the left edge.
-  const [leftOdd, rightOdd] = pathsOf(svg, 'class="fa"')
-  assert.ok(leftOdd.startsWith('M64 168h64v64h-64zM192 168h64v64h-64z'), leftOdd.slice(0, 60))
-  assert.ok(leftOdd.includes('M0 232h64v64h-64z'))
-  // Right: counted back from the right edge, the grid's own parity: column 11 (touching the edge) is odd on row 0, column 10 is not.
-  assert.ok(rightOdd.includes('M704 168h64v64h-64z'))
-  assert.equal(rightOdd.includes('M640 168h64v64h-64z'), false)
-  assert.equal(pathsOf(svg, 'class="fb"').length, 2)
+  // One base colour and one path of odd tiles, in a group whose origin is the window's centre (x = 50%).
+  assert.equal(pathsOf(svg, 'class="fb"').length, 1)
+  assert.equal(pathsOf(svg, 'class="fa"').length, 1)
+  assert.ok(svg.includes('<svg x="50%" overflow="visible"><g class="pf" transform="scale(1)">'))
+  // The tile edge is on the centre line: column -1 and column 0 differ on every row.
+  const odd = oddTiles(svg)
+  assert.ok(odd.has('-1,0') && !odd.has('0,0') && odd.has('0,1') && !odd.has('-1,1'))
+  // The whole grid is one checker (column + row odd), left and right of the centre alike.
+  for (let j = 0; j < 24; j++) for (let i = -30; i < 30; i++) assert.equal(odd.has(`${i},${j}`), (((i + j) % 2) + 2) % 2 === 1, `${i},${j}`)
+})
+
+// The floor of the first layout, for the control: tiles counted from each window edge at 4 px a cell. A window cell `c` of a
+// window `w` px wide shows tile floor(c / 16) on the left half and, on the right half, the tile of the scene cell c - (w / 4 - 192).
+const colourFromEdges = (w, c, row) => {
+  const left = c < w / 8
+  const tile = Math.floor((left ? c : c - (w / 4 - 192)) / 16)
+  return (tile + row) % 2
+}
+// A seam: the colour changes across the centre line at a cell pair with no tile edge of the checker between them.
+const seamAtCentre = (w, colour) => {
+  const centre = w / 8
+  const edgeBetween = Math.floor((centre - 1) / 16) !== Math.floor((centre + 1) / 16)
+  return !edgeBetween && colour(w, centre - 1, 0) !== colour(w, centre + 1, 0)
+}
+
+test('no seam in the floor at the window centre at any width, where counting the tiles from each edge had one at 1440', () => {
+  // Control: the first layout has the seam at 1440 (centre at cell 180, mid-tile) and none at 1536 (centre at cell 192, a tile edge).
+  assert.equal(seamAtCentre(1440, colourFromEdges), true)
+  assert.equal(seamAtCentre(1536, colourFromEdges), false)
+  // The new layout: the group's origin is the centre and column -1 / 0 alternate there, so every width has a tile edge on the
+  // centre line and the colour only changes across it.
+  const odd = oddTiles(frameScene(TOY, TOY_ZONES, FIXED))
+  for (const w of [1280, 1366, 1440, 1512, 1728, 1920]) {
+    const colour = (width, c, row) => (odd.has(`${Math.floor((c - width / 8) / 16)},${row}`) ? 1 : 0)
+    assert.equal(colour(w, w / 8 - 1, 0) !== colour(w, w / 8 + 1, 0), true, `${w}`)
+    // Away from the centre the colour holds across a tile: two cells inside the same tile are the same colour.
+    assert.equal(colour(w, w / 8 + 3, 0), colour(w, w / 8 + 4, 0), `${w}`)
+  }
 })
 
 test('the lit cells go to the zone they are in, once, and are never stretched', () => {
@@ -117,7 +150,7 @@ test('option A is 4 whatever the window; option B follows the gutter and the hei
 // The scale the generated CSS bands pick in a window: the highest band whose queries hold.
 const bandScale = (svg, [w, h], start) => {
   let k = start
-  for (const [, minW, minH, scale] of svg.matchAll(/@media \(min-width:(\d+)px\) and \(min-height:(\d+)px\)\{\.pl\{transform:translate\(0px,[\d.-]+px\) scale\(([\d.]+)\)\}/g)) {
+  for (const [, minW, minH, scale] of svg.matchAll(/@media \(min-width:(\d+)px\) and \(min-height:(\d+)px\)\{\.pf\{transform:scale\([\d.]+\)\}\.pl\{transform:translate\(0px,[\d.-]+px\) scale\(([\d.]+)\)\}/g)) {
     if (w >= Number(minW) && h >= Number(minH)) k = Number(scale) * 4
   }
   return k

@@ -21,8 +21,8 @@ export const TILE = 16
 export const COLUMN = 760
 // Reaching past any window: a wall band runs this far toward the middle.
 const FAR = 4000
-// Tiles drawn from each window edge toward the middle: 30 columns and 24 rows of 16 cells cover half of
-// a window up to 3840 CSS px wide and 1536 tall at 4 px a cell.
+// Tiles drawn from the window's centre each way: 30 columns and 24 rows of 16 cells cover a window up to
+// 3840 CSS px wide and 1536 tall at 4 px a cell.
 const TILE_COLS = 30
 const TILE_ROWS = 24
 
@@ -58,22 +58,20 @@ const rightZone = (list, cut, room) =>
       return { x: start, y: r.y, w: r.x + r.w - start, h: r.h }
     })
 
-// The floor, tile by tile, in scene units: `.fb` underneath and `.fa` on the tiles the room paints
-// with it (tile column i, row j: `.fa` where i + j is odd, as paintRoom does). From the left edge
-// for the left zone, back from the right edge for the right zone.
-const tiles = side => {
+// The floor, tile by tile, in scene units, from the window's centre: `.fb` underneath and `.fa` on the tiles
+// the room paints with it (tile column i, row j: `.fa` where i + j is odd, as paintRoom does). One checker runs
+// across the whole width, with a tile edge on the centre line, so no two tiles meet badly at any window width:
+// a floor counted from each edge instead breaks the pattern wherever the width is not a whole number of tiles.
+const floor = () => {
   const size = TILE * UNIT
-  const top = WALL_UNITS
-  const base = side === 'left' ? { x: 0, w: FAR } : { x: GRID_W * UNIT - FAR, w: FAR }
   const odd = []
   for (let j = 0; j < TILE_ROWS; j++) {
-    for (let n = 0; n < TILE_COLS; n++) {
-      const i = side === 'left' ? n : GRID_W / TILE - 1 - n
-      if ((i + j) % 2 === 1) odd.push({ x: i * size, y: top + j * size, w: size, h: size })
+    for (let i = -TILE_COLS; i < TILE_COLS; i++) {
+      if ((((i + j) % 2) + 2) % 2 === 1) odd.push({ x: i * size, y: WALL_UNITS + j * size, w: size, h: size })
     }
   }
   return (
-    `<path class="fb" d="${draw([{ x: base.x, y: top, w: base.w, h: TILE_ROWS * size }])}"/>` +
+    `<path class="fb" d="${draw([{ x: -FAR, y: WALL_UNITS, w: 2 * FAR, h: TILE_ROWS * size }])}"/>` +
     `<path class="fa" d="${draw(odd)}"/>`
   )
 }
@@ -99,7 +97,7 @@ const bands = (option, zoneCells, rows, middle) => {
   for (let k = option.min + 1; k <= option.max; k++) {
     css +=
       `@media (min-width:${COLUMN + 2 * zoneCells * k}px) and (min-height:${rows * k}px){` +
-      `.pl{transform:${placeCss(k, 'left', middle)}}.pr{transform:${placeCss(k, 'right', middle)}}}`
+      `.pf{transform:scale(${k / UNIT})}.pl{transform:${placeCss(k, 'left', middle)}}.pr{transform:${placeCss(k, 'right', middle)}}}`
   }
   return css
 }
@@ -108,7 +106,7 @@ const startK = option => (option.mode === 'fixed' ? option.cells : option.min)
 
 // `left`, `right`: the markup of each zone, in scene units; `lit`: the same for what is drawn over the
 // veil. `middle`: rows of a picture that sits on the window's vertical middle (the dots); else the room's top is the window's top.
-const frame = ({ style, left, right, litLeft, litRight, veil, zoneCells, option, rows = GRID_H, middle = 0 }) => {
+const frame = ({ style, floor: tiles = '', left, right, litLeft, litRight, veil, zoneCells, option, rows = GRID_H, middle = 0 }) => {
   const k = startK(option)
   const at = side => place(k, side, middle)
   const centre = middle > 0
@@ -120,6 +118,7 @@ const frame = ({ style, left, right, litLeft, litRight, veil, zoneCells, option,
     `<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" shape-rendering="crispEdges">` +
     `<style>${style}${bands(option, zoneCells, rows, middle)}</style>` +
     `<rect class="bg" width="100%" height="100%"/>` +
+    (tiles ? `<svg x="50%" overflow="visible"><g class="pf" transform="scale(${k / UNIT})">${tiles}</g></svg>` : '') +
     zone('left', left) +
     zone('right', right) +
     (veil ? `<rect class="veil" width="100%" height="100%"/>` : '') +
@@ -156,8 +155,9 @@ export const frameScene = (svg, { left, right }, option = SCALE) => {
   const over = paths(lit, false)
   return frame({
     style,
-    left: tiles('left') + main.left,
-    right: tiles('right') + main.right,
+    floor: floor(),
+    left: main.left,
+    right: main.right,
     litLeft: over.left,
     litRight: over.right,
     veil: true,

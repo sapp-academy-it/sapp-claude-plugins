@@ -8,7 +8,7 @@
 //   node plugins/sapp-mod/scripts/build-scene.mjs
 //
 // No network and nothing but the sprite files is read. Every sprite pixel is one
-// cell of a 192 by 136 grid; objects missing from the sprite set are drawn by code
+// cell of a 192 by 200 grid; objects missing from the sprite set are drawn by code
 // in the same palette scale, cell by cell. Runs of one colour merge into one
 // subpath of one <path> per colour, and the Svg is scaled by the integer SCALE
 // (every coordinate is a cell times SCALE) with crisp edges. No raster image is
@@ -868,7 +868,7 @@ function itRoom({ people = true, outline = true } = {}) {
   }
   // A coffee cup on the last desk's top surface, a plant by the wall and a big one in the corner.
   cv.blit('furniture/COFFEE.png', COFFEE_AT.x, COFFEE_AT.y)
-  cv.blit('furniture/PLANT.png', 182, 18)
+  cv.blit('furniture/PLANT.png', 172, 66)
   cv.blit('furniture/LARGE_PLANT.png', 158, 124)
 
   return serialize(cv, {
