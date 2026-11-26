@@ -1,15 +1,13 @@
-// How a scene sits in the window. The Backdrop fills the whole Desktop window, but the
-// chat column stands in the middle of it, so anything drawn there is covered and blurred.
-// Every room is therefore two composed zones (see ZONES in scripts/build-scene.mjs): the left
-// zone is anchored to the window's left edge, the right zone to its right edge, each at a whole
-// number of CSS pixels per sprite cell. The room between them is empty: the wall's flat bands
-// run on, and the floor is tiled with the room's own two floor tiles, never stretched. Nothing
-// is scaled to the window, so a bigger window shows more empty room, not a bigger one.
+// How a scene sits in the window. The Backdrop fills the whole Desktop window, under the opaque sidebar, the title bar and the
+// frosted chat column in the middle, so anything drawn there is covered. Every room is therefore two composed zones (see ZONES
+// in scripts/build-scene.mjs): the left zone starts INSET px from the left edge (just past the sidebar), the right zone is
+// anchored to the right edge, and the whole room starts TOP px down (under the title bar), at a whole number of CSS pixels per
+// sprite cell. The room between the zones is empty: the wall's flat bands run on, and the floor is tiled with the room's own two
+// floor tiles, never stretched. Nothing is scaled to the window, so a bigger window shows more empty room, not a bigger one.
 //
-// The hooks API gives a Backdrop hook no window size and no column width (props are scene,
-// plugin, glass and overrideColorScheme), so the layout is built from what an Svg can read:
-// percentages of its own box and `@media` size queries, which read the scene's own box.
-// The column width below is an assumption, not a measurement.
+// The hooks API gives a Backdrop hook no window size and no column width (props are scene, plugin, glass and
+// overrideColorScheme), so the layout is built from what an Svg can read: percentages of its own box. The sizes come from a
+// measured Desktop window (below), and no `@media` rule is used.
 
 export const UNIT = 4 // scene units per sprite cell (build-scene.mjs SCALE)
 export const GRID_W = 192
@@ -17,31 +15,28 @@ export const GRID_H = 200
 // Rows of the wall (the floor starts below row 42) and the size of a floor tile, in cells.
 export const WALL_ROWS = 42
 export const TILE = 16
-// Assumed width of the chat column, CSS px, centred in the window.
-export const COLUMN = 760
 // Reaching past any window: a wall band runs this far toward the middle.
 const FAR = 4000
-// Tiles drawn from the window's centre each way: 30 columns and 24 rows of 16 cells cover a window up to
-// 3840 CSS px wide and 1536 tall at 4 px a cell.
-const TILE_COLS = 30
-const TILE_ROWS = 24
+// Tiles drawn from the window's centre each way: 40 columns and 44 rows of 16 cells cover a window up to 3840 CSS px wide and
+// 2112 tall at 3 px a cell.
+const TILE_COLS = 40
+const TILE_ROWS = 44
 
-// A fixed integer scale: `cells` CSS px for each sprite cell, whatever the window. `inset` and `top` move the room right and down
-// (CSS px): the left zone starts past the sidebar and the room starts under the title bar.
-export const FIXED = { mode: 'fixed', cells: 4 }
-// The dots are a picture of 136 rows, centred on the window's height.
-export const DOT_ROWS = 136
 // The geometry measured on a real Desktop window (Code tab, sidebar open), in CSS px: the sidebar is 283 wide and opaque,
 // the title bar 40 tall, the chat column 768 wide and centred in the panel to the right of the sidebar. The Backdrop
 // itself spans the whole window, under both.
 export const SIDEBAR = 283
 export const TITLEBAR = 40
 export const CHAT = 768
+// The dots are a picture of 136 rows, centred on the window's height.
+export const DOT_ROWS = 136
+// A fixed integer scale: `cells` CSS px for each sprite cell, whatever the window; `inset` and `top` (CSS px) move the room right
+// and down, so the left zone starts just past the sidebar and the room starts under the title bar.
 export const INSET = SIDEBAR + 3
 export const TOP = TITLEBAR + 4
-// What the mod ships: 3 px a cell, the left zone from the sidebar's edge, the room under the title bar. A room is composed
-// 74 cells wide a side (222 px), which fits the 228 px gutter beside the chat column at 1506 wide with the sidebar open.
-export const D13 = { mode: 'fixed', cells: 3, inset: INSET, top: TOP }
+// What the mod ships. A room is composed 74 cells wide a side (222 px at 3 px a cell), which fits the 228 px gutter that is left
+// beside the chat column at 1506 wide with the sidebar open.
+export const D13 = { cells: 3, inset: INSET, top: TOP }
 export const SCALE = D13
 
 const RECT = /M(-?\d+) (-?\d+)h(\d+)v(\d+)h-\d+z/g
@@ -117,7 +112,7 @@ const frame = ({ style, floor: tiles = '', left, right, litLeft, litRight, veil,
 }
 
 // A pixel scene (the generated Svg of build-scene.mjs): bg rect, one path per colour, the veil,
-// then the lit paths. `zones.left` is the first cell of the empty middle, `zones.right` its last.
+// then the lit paths. `left` is the first cell of the empty middle, `right` its last.
 export const frameScene = (svg, { left, right }, option = SCALE) => {
   const style = svg.match(/<style>(.*?)<\/style>/s)[1]
   const veilAt = svg.indexOf('<rect class="veil"')
@@ -145,8 +140,7 @@ export const frameScene = (svg, { left, right }, option = SCALE) => {
   const over = paths(lit, false)
   return frame({
     style,
-    // Smaller cells need more tiles to reach the window's edges: 44 rows and 40 columns cover 2800 px at 2 px a cell.
-    floor: option.cells < 4 ? floor(44, 40) : floor(),
+    floor: floor(),
     left: main.left,
     right: main.right,
     litLeft: over.left,

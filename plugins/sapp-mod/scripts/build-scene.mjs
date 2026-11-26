@@ -650,7 +650,7 @@ function marketing() {
 
   // The content corner, below the table (left zone): see after the desks.
   // ---- right zone: the work. The KPI board: a title and bars that rise, in the marker colour.
-  const kf = boardFrame(cv, 118, 3, 44, 29)
+  const kf = boardFrame(cv, 120, 3, 44, 29)
   cv.text('KPI', kf.x + 2, kf.y + 2, P.steelLo)
   cv.line(kf.x + 14, kf.y + 16, kf.x + 36, kf.y + 6, '#E58A3A')
   ;[4, 7, 10, 13, 16].forEach((h, i) => cv.litBox(kf.x + 3 + i * 7, kf.y + 22 - h, 5, h, m.bar))
@@ -658,7 +658,7 @@ function marketing() {
 
   // A plant and the clock on the wall.
   cv.blit('furniture/PLANT.png', 176, 40)
-  cv.blit('furniture/CLOCK.png', 166, -8)
+  cv.blit('furniture/CLOCK.png', 168, -8)
 
   // Three desks with PCs.
   const station = (dx, dy, who, col, pc) => {
@@ -846,7 +846,7 @@ function itRoom({ people = true, outline = true } = {}) {
   rack(cv, 172, 6, false, m)
 
   // Tidy cables: a tray along the top of the racks, drops, and floor trunking.
-  cv.box(118, 3, 72, 2, P.steelLo)
+  cv.box(120, 3, 70, 2, P.steelLo)
   const cables = ['#3F6BFF', '#F2C94C', '#FF8A5C', '#5FD08A']
   cables.forEach((c, i) => {
     cv.box(125 + i, 5, 1, 3, c)
@@ -879,7 +879,7 @@ function itRoom({ people = true, outline = true } = {}) {
 }
 
 export const IT_ALT =
-  'Phòng IT kiểu pixel art, sáng ban ngày và tối về đêm, hai nhóm hai bên: bên trái hai người đứng họp trước màn hình giám sát lớn, bàn nhỏ có laptop; bên phải ba tủ rack có đèn LED và một tủ đang mở cửa, hai kỹ sư ngồi bàn hai màn hình, cáp gọn gàng, cốc cà phê và chậu cây; ở giữa là sàn phòng trống'
+  'Phòng IT kiểu pixel art, sáng ban ngày và tối về đêm, hai nhóm hai bên: bên trái một người trực màn hình giám sát lớn và hai kỹ sư ngồi bàn hai màn hình; bên phải một người kiểm tra ba tủ rack có đèn LED, một tủ đang mở cửa, cùng hai kỹ sư ngồi bàn, cáp gọn gàng, cốc cà phê và chậu cây; ở giữa là sàn phòng trống'
 
 // ---- the modules -----------------------------------------------------------------------
 

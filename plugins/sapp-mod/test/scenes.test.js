@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import { IT_SVG } from '../hooks/scene-it.js'
 import { MARKETING_SVG } from '../hooks/scene-marketing.js'
 import { SCENE_SVG } from '../hooks/scene.js'
+import { D13, INSET } from '../hooks/layout.js'
 import { THEMES, pickTheme } from '../hooks/themes.js'
 import { GRAPH_BG, GRAPH_PANEL, IT_PEOPLE, MARKERS, RIM, RIM_LIGHT, SCENES, buildItWithoutPeople, buildItWithoutRim, buildScene, buildSceneModule, buildTrace, COFFEE_AT, IT_DESKS, personCells, readPng } from '../scripts/build-scene.mjs'
 import { registered, render, runCommand } from './harness.js'
@@ -253,8 +254,8 @@ const sceneXOf = source => {
   const expr = source.match(/const sceneX = (.*)$/m)[1].replace(/p\.uv\.x/g, 'uvx').replace(/size\.x/g, 'size[0]').replace(/size\.y/g, 'size[1]')
   return new Function('uvx', 'size', 'max', 'min', `return ${expr}`)
 }
-// The uv x at which a window of this width shows scene x: layout.js draws the left zone from 286 points in at 3 points a cell, so 4 units are 3 points.
-const uvXOf = (sceneX, [w]) => ((sceneX * 3) / 4 + 286) / w
+// The uv x at which a window of this width shows scene x: layout.js draws the left zone from INSET points in at D13.cells points a cell (4 units a cell).
+const uvXOf = (sceneX, [w]) => ((sceneX * D13.cells) / 4 + INSET) / w
 const WINDOWS = [[768, 544], [1512, 945], [1000, 1400], [2400, 600]]
 
 test('the shader\'s scene-x line maps a uv back to the scene x at every window shape; the old centred slice fit turns it red', () => {
@@ -267,7 +268,7 @@ test('the shader\'s scene-x line maps a uv back to the scene x at every window s
   assert.equal(check(sceneXOf(source.replace('p.uv.x * size.x', slice))), false)
   assert.equal(check(sceneXOf(source.replace('p.uv.x * size.x', 'p.uv.x * size.x + 4'))), false)
   // ...and so does forgetting the inset (the zone starts past the sidebar) or the 3 points a cell.
-  assert.equal(check(sceneXOf(source.replace('- 286', '- 0'))), false)
+  assert.equal(check(sceneXOf(source.replace(`- ${INSET}`, '- 0'))), false)
   assert.equal(check(sceneXOf(source.replace('* 4) / 3', '* 4) / 4'))), false)
 })
 
