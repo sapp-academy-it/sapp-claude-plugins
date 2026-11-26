@@ -104,11 +104,11 @@ const showHelp = async $ => {
 }
 
 // The credit line is set at session.start, but on the Desktop Code tab no status row is attached
-// that early and the call has no effect. The first render that arrives with a surface sets it again,
-// once per session; a status that throws never touches the render.
-const creditOnce = ($, e, state) => {
-  if (state.isCredited || e.surface == null) return
-  state.isCredited = true
+// that early and the call has no effect. So every Backdrop and Spinner render that arrives with a
+// surface sets it again (a repeat call replaces the status with itself, so there is no once-flag
+// to spend on a render that is still too early). A status that throws never touches the render.
+const creditAgain = ($, e) => {
+  if (e.surface == null) return
   try {
     $.ui.status(CREDIT)
   } catch {
@@ -117,10 +117,9 @@ const creditOnce = ($, e, state) => {
 }
 
 export const register = on => {
-  const state = { applied: undefined, isCredited: false }
+  const state = { applied: undefined }
 
   on('session.start', async ($, e, next) => {
-    state.isCredited = false
     // The credit line first: an older Claude Code without $.theme.set still shows it.
     try {
       $.ui.status(CREDIT)
@@ -178,7 +177,7 @@ export const register = on => {
   })
 
   on('ui.render', { component: 'Backdrop' }, ($, e, next) => {
-    creditOnce($, e, state)
+    creditAgain($, e)
     if (e.surface !== 'desktop' && e.surface !== 'mobile') {
       return next(e)
     }
@@ -207,7 +206,7 @@ export const register = on => {
   })
 
   on('ui.render', { component: 'Spinner' }, ($, e, next) => {
-    creditOnce($, e, state)
+    creditAgain($, e)
     return next({
       ...e,
       props: {

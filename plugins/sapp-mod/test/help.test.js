@@ -65,7 +65,7 @@ test('/sapp-help where no pane is drawn answers the whole card as text and start
   // The "Đang cài" section is at most 3 short user-facing lines: what it is, how to switch theme, how to open the guide.
   const installed = out.text.split('## Đang cài: sapp-mod')[1].split('\n## ')[0].split('\n').filter(line => line.startsWith('- '))
   assert.deepEqual(installed, [
-    '- Giao diện SAPP cho Claude Code.',
+    '- Giao diện SAPP cho Claude Code (hiện ở tab Code của Claude Desktop).',
     '- Đổi giao diện: gõ `/sapp-theme`.',
     '- Xem hướng dẫn dùng Claude: gõ `/sapp-help` (trang này).',
   ])
