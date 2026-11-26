@@ -80,11 +80,6 @@ export async function render(engine, component, e) {
   return hook.fn(engine.$, e, next)
 }
 
-export async function tip(engine, candidates = []) {
-  const hook = find(engine, 'ui.tip')
-  return hook.fn(engine.$, { candidates }, next)
-}
-
 export async function runCommand(engine, command, args) {
   const hook = find(engine, 'command.run', { command })
   return hook.fn(engine.$, { command, args }, next)

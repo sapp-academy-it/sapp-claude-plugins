@@ -8,7 +8,7 @@ import { THEMES, dotsSvg, pickTheme, themeOrDefault } from '../hooks/themes.js'
 import { tokens } from '../hooks/tokens.js'
 import { makeColors } from '../hooks/make-colors.js'
 import { buildSceneModule } from '../scripts/build-scene.mjs'
-import { registered, render, runCommand, startSession, tip } from './harness.js'
+import { registered, render, runCommand, startSession } from './harness.js'
 
 // Events that read or change what Claude does, or what the person typed: whole
 // families by prefix, plus these exact names.
@@ -422,7 +422,7 @@ test('the manifest name, the marketplace entry and the Backdrop guard all say sa
 
 // ---- what the mod hooks and calls -------------------------------------------------------
 
-test('register() hooks exactly session.start, the two commands, ui.tip, and the Backdrop, Spinner and Pane renders', () => {
+test('register() hooks exactly session.start, the two commands, and the Backdrop, Spinner and Pane renders', () => {
   const engine = registered()
 
   assert.deepEqual(
@@ -434,7 +434,6 @@ test('register() hooks exactly session.start, the two commands, ui.tip, and the 
       'ui.render{"component":"Backdrop"}',
       'ui.render{"component":"Pane"}',
       'ui.render{"component":"Spinner"}',
-      'ui.tip' + 'null',
     ],
   )
 })
@@ -462,7 +461,6 @@ test('running every hook makes no call on $ beyond the pinned set', async () => 
   await runCommand(engine, 'sapp-theme', 'it-room')
   await runCommand(engine, 'sapp-help', '')
   await render(engine, 'Pane', { surface: 'desktop', requestId: 'sapp-help', props: {} })
-  await tip(engine)
   await render(engine, 'Backdrop', { surface: 'desktop', props: { scene: 'sapp-acca-classroom', plugin: 'sapp-mod' } })
   await render(engine, 'Spinner', { surface: 'desktop', props: { word: 'x', message: null, suffix: '…', mode: 'thinking' } })
   const used = [...new Set(engine.calls.map(c => c.path))].sort()

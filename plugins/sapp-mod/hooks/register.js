@@ -1,4 +1,4 @@
-import { HELP_MARKDOWN, HELP_TIP, HELP_TIP_ID, HELP_TOAST, PANE_ID, TIP_EVERY, TOAST_KEY } from './help.js'
+import { HELP_MARKDOWN, HELP_TOAST, PANE_ID, TOAST_KEY } from './help.js'
 import { THEMES, pickTheme, themeOrDefault } from './themes.js'
 
 export const CREDIT = 'Tạo bởi SAPP IT Department, © 2026'
@@ -104,7 +104,7 @@ const showHelp = async $ => {
 }
 
 export const register = on => {
-  const state = { applied: undefined, tips: 0 }
+  const state = { applied: undefined }
 
   on('session.start', async ($, e, next) => {
     // The credit line first: an older Claude Code without $.theme.set still shows it.
@@ -161,16 +161,6 @@ export const register = on => {
         Button({ key: 'close', label: 'Đóng', role: 'dismiss', onPress: () => $.ui.close({ id: PANE_ID }) }),
       ],
     })
-  })
-
-  // One tip in TIP_EVERY is ours; the rest are the engine's own choice, untouched. The chain
-  // below us always runs first (next(e)), so other mods' tip hooks get their turn on every ask;
-  // on our turn we then replace its answer with ours.
-  on('ui.tip', async ($, e, next) => {
-    state.tips += 1
-    const chosen = await next(e)
-    if (state.tips % TIP_EVERY !== 0) return chosen
-    return { id: HELP_TIP_ID, text: HELP_TIP, label: 'SAPP' }
   })
 
   on('ui.render', { component: 'Backdrop' }, ($, e, next) => {
